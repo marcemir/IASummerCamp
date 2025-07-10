@@ -3,6 +3,9 @@ console.log('app.js cargado correctamente');
 // Elementos del DOM
 let splashScreen, userTypeScreen, authScreen, appContainer, loginForm, emailInput, passwordInput, togglePassword, rememberMe, showRegister, messagesContainer, messageForm, messageInput, sendButton, voiceButton, themeToggle, userEmail, logoutButton, studentBtn, teacherBtn;
 
+// Elementos del menú desplegable
+let menuButton, dropdownMenu, uploadMaterialBtn, uploadPhotoBtn, myDataBtn;
+
 // Elementos para carga de archivos
 let uploadButton, uploadModal, closeModal, dropArea, fileSelector, fileInfo, cancelUpload, confirmUpload, uploadProgress, progressBar, progressText;
 
@@ -45,6 +48,13 @@ function initializeDOMElements() {
     userEmail = getElement('user-email');
     logoutButton = getElement('logout-button');
     
+    // Elementos del menú desplegable
+    menuButton = getElement('menu-button');
+    dropdownMenu = getElement('dropdown-menu');
+    uploadMaterialBtn = getElement('upload-material');
+    uploadPhotoBtn = getElement('upload-photo');
+    myDataBtn = getElement('my-data');
+    
     // Elementos para carga de archivos
     uploadButton = getElement('upload-button');
     uploadModal = getElement('upload-modal');
@@ -72,38 +82,64 @@ function initializeDOMElements() {
 let isListening = false;
 let recognition = null;
 let isDarkMode = localStorage.getItem('darkMode') === 'true';
-let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-let authToken = localStorage.getItem('authToken');
-let userType = ''; // 'student' o 'teacher'
+
+// Inicializar el usuario y token desde el almacenamiento al cargar la página
+let currentUser = (() => {
+    try {
+        const storedUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
+        return storedUser ? JSON.parse(storedUser) : null;
+    } catch (e) {
+        console.error('Error al cargar el usuario del almacenamiento:', e);
+        return null;
+    }
+})();
+
+let authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || null;
+let userType = currentUser?.role || null; // 'student' o 'teacher'
 
 // Inicialización
 function init() {
-    console.log('Iniciando aplicación...');
-    
     try {
+        console.log('Inicializando la aplicación...');
+        
         // Inicializar elementos del DOM
-        if (!initializeDOMElements()) {
-            console.error('Error crítico: No se pudieron inicializar los elementos del DOM');
-            return;
-        }
+        initializeDOMElements();
         
-        // Cargar preferencias del tema
+        // Configurar el tema
         updateTheme();
-        
-        // Configurar reconocimiento de voz
-        initSpeechRecognition();
         
         // Configurar eventos
         setupEventListeners();
         
-        // Iniciar flujo de autenticación
+        // Configurar carga de archivos
+        setupFileUploadListeners();
+        
+        // Verificar autenticación antes de iniciar el flujo
+        if (isAuthenticated()) {
+            console.log('Usuario ya autenticado:', currentUser?.email);
+            
+            // Si estamos en la página de login pero ya estamos autenticados, redirigir según el rol
+            if (window.location.pathname.endsWith('index.html')) {
+                if (currentUser?.role === 'teacher') {
+                    window.location.href = 'construction.html';
+                } else {
+                    // Si es estudiante, mostrar la aplicación principal
+                    showApp();
+                    loadMessages();
+                    if (messagesContainer && messagesContainer.children.length === 0) {
+                        addMessage('assistant', `¡Bienvenido de nuevo, ${currentUser.name}! ¿En qué puedo ayudarte hoy?`);
+                    }
+                }
+                return;
+            }
+        }
+        
+        // Iniciar el flujo de la aplicación
         startAppFlow();
         
         console.log('Aplicación inicializada correctamente');
     } catch (error) {
-        console.error('Error durante la inicialización de la aplicación:', error);
-        // Mostrar mensaje de error al usuario
-        alert('Se produjo un error al cargar la aplicación. Por favor, recarga la página.');
+        console.error('Error al inicializar la aplicación:', error);
     }
 }
 
@@ -121,28 +157,33 @@ function startAppFlow() {
         // Mostrar pantalla de inicio
         showSplashScreen();
         
-        // Después de 3 segundos, verificar autenticación
-        console.log('Mostrando pantalla de inicio por 3 segundos...');
+        // Verificar si hay una sesión activa
+        if (isAuthenticated()) {
+            console.log('Sesión activa encontrada, redirigiendo...');
+            // Pequeño retraso para mostrar la animación de carga
+            setTimeout(() => {
+                hideSplashScreen();
+                if (currentUser.role === 'teacher') {
+                    window.location.href = 'construction.html';
+                } else {
+                    showApp();
+                    loadMessages();
+                }
+            }, 1500);
+            return;
+        }
+        
+        // Si no hay sesión activa, continuar con el flujo normal
+        console.log('No hay sesión activa, mostrando pantalla de selección de usuario...');
         setTimeout(() => {
             try {
                 hideSplashScreen();
-                
-                // Mostrar la pantalla de selección de tipo de usuario
                 showUserTypeScreen();
-                
-                // Limpiar cualquier sesión existente
-                currentUser = null;
-                authToken = null;
-                localStorage.removeItem('currentUser');
-                localStorage.removeItem('authToken');
-                sessionStorage.removeItem('currentUser');
-                sessionStorage.removeItem('authToken');
             } catch (error) {
                 console.error('Error en el flujo de autenticación:', error);
-                // Mostrar pantalla de autenticación en caso de error
                 showAuthScreen();
             }
-        }, 3000); // 3 segundos
+        }, 1500); // 1.5 segundos para la animación de carga
     } catch (error) {
         console.error('Error crítico en startAppFlow:', error);
         // Mostrar un mensaje de error genérico
@@ -164,33 +205,57 @@ function startAppFlow() {
 // Verificar si el usuario está autenticado
 function isAuthenticated() {
     try {
-        // Verificar si hay un usuario en localStorage o sessionStorage
-        const storedUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
-        const storedToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        // Verificar si ya tenemos el usuario en memoria
+        if (currentUser && authToken) {
+            console.log('Usuario ya está en memoria:', currentUser.email);
+            return true;
+        }
         
-        if (storedUser && storedToken) {
+        // Buscar en localStorage y sessionStorage
+        const storageTypes = [localStorage, sessionStorage];
+        
+        for (const storage of storageTypes) {
             try {
-                // Intentar analizar el usuario almacenado
-                const user = JSON.parse(storedUser);
+                const storedUser = storage.getItem('currentUser');
+                const storedToken = storage.getItem('authToken');
                 
-                // Verificar que el usuario tenga los campos requeridos
-                if (user && user.id && user.email) {
-                    console.log('Usuario autenticado encontrado:', user.email);
-                    currentUser = user; // Actualizar el usuario actual
-                    authToken = storedToken; // Actualizar el token
-                    return true;
+                if (storedUser && storedToken) {
+                    const user = JSON.parse(storedUser);
+                    
+                    // Validar estructura del usuario
+                    if (user && typeof user === 'object' && user.id && user.email) {
+                        console.log('Usuario autenticado encontrado en', storage === localStorage ? 'localStorage' : 'sessionStorage');
+                        
+                        // Actualizar estado global
+                        currentUser = user;
+                        authToken = storedToken;
+                        userType = user.role || 'student';
+                        
+                        // Si el token está en sessionStorage, moverlo a localStorage si es necesario
+                        if (storage === sessionStorage && rememberMe?.checked) {
+                            localStorage.setItem('currentUser', storedUser);
+                            localStorage.setItem('authToken', storedToken);
+                            sessionStorage.removeItem('currentUser');
+                            sessionStorage.removeItem('authToken');
+                            console.log('Sesión movida a localStorage');
+                        }
+                        
+                        return true;
+                    } else {
+                        console.warn('Datos de usuario inválidos en el almacenamiento');
+                        storage.removeItem('currentUser');
+                        storage.removeItem('authToken');
+                    }
                 }
-            } catch (error) {
-                console.error('Error al analizar los datos del usuario:', error);
-                // Limpiar datos inválidos
-                localStorage.removeItem('currentUser');
-                sessionStorage.removeItem('currentUser');
-                localStorage.removeItem('authToken');
-                sessionStorage.removeItem('authToken');
+            } catch (e) {
+                console.error('Error al verificar el almacenamiento:', e);
+                // Limpiar datos corruptos
+                storage.removeItem('currentUser');
+                storage.removeItem('authToken');
             }
         }
         
-        console.log('No se encontró un usuario autenticado');
+        console.log('No se encontró una sesión activa');
         return false;
     } catch (error) {
         console.error('Error al verificar la autenticación:', error);
@@ -198,74 +263,193 @@ function isAuthenticated() {
     }
 }
 
+// Función para mostrar errores de validación
+function showError(input, message) {
+    const formGroup = input.closest('.form-group');
+    const errorElement = formGroup.querySelector('.error-message');
+    
+    formGroup.classList.add('error');
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+    }
+    
+    // Enfocar el campo con error
+    input.focus();
+    return false;
+}
+
+// Función para limpiar errores de validación
+function clearError(input) {
+    const formGroup = input.closest('.form-group');
+    if (formGroup) {
+        formGroup.classList.remove('error');
+        const errorElement = formGroup.querySelector('.error-message');
+        if (errorElement) {
+            errorElement.style.display = 'none';
+        }
+    }
+}
+
+// Validar un campo individual
+function validateField(input) {
+    const value = input.value.trim();
+    const type = input.getAttribute('data-validate');
+    
+    // Limpiar errores previos
+    clearError(input);
+    
+    // Validar campo requerido
+    if (input.required && !value) {
+        return showError(input, 'Este campo es obligatorio');
+    }
+    
+    // Validaciones específicas por tipo
+    if (type === 'email' && value) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+            return showError(input, 'Por favor, introduce un correo electrónico válido');
+        }
+    }
+    
+    if (type === 'password' && value) {
+        if (value.length < 6) {
+            return showError(input, 'La contraseña debe tener al menos 6 caracteres');
+        }
+    }
+    
+    return true;
+}
+
+// Validar todo el formulario
+function validateForm(form) {
+    let isValid = true;
+    const inputs = form.querySelectorAll('input[data-validate]');
+    
+    inputs.forEach(input => {
+        if (!validateField(input)) {
+            isValid = false;
+        }
+    });
+    
+    return isValid;
+}
+
 // Manejar inicio de sesión (versión fake para MVP)
 function handleLogin(email, password, remember) {
     console.log(`Intento de inicio de sesión con email: ${email}`);
     
     try {
-        // Validar parámetros
-        if (!email || !password) {
-            console.error('Email y contraseña son requeridos');
+        // Limpiar errores previos
+        if (emailInput) clearError(emailInput);
+        if (passwordInput) clearError(passwordInput);
+        
+        // Validar campos
+        let isValid = true;
+        
+        // Validar email
+        if (!email) {
+            showError(emailInput, 'El correo electrónico es obligatorio');
+            isValid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showError(emailInput, 'Por favor, introduce un correo electrónico válido');
+            isValid = false;
+        }
+        
+        // Validar contraseña
+        if (!password) {
+            showError(passwordInput, 'La contraseña es obligatoria');
+            isValid = false;
+        } else if (password.length < 6) {
+            showError(passwordInput, 'La contraseña debe tener al menos 6 caracteres');
+            isValid = false;
+        }
+        
+        if (!isValid) {
             return false;
+        }
+        
+        // Mostrar indicador de carga
+        const loginButton = document.querySelector('#login-form button[type="submit"]');
+        const originalButtonText = loginButton ? loginButton.innerHTML : '';
+        if (loginButton) {
+            loginButton.disabled = true;
+            loginButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Iniciando sesión...';
         }
         
         // Simular una pequeña demora para la autenticación
         setTimeout(() => {
             try {
+                // Asegurarse de que userType esté definido
+                const userRole = userType || 'student';
+                
                 // Datos de usuario de ejemplo
-                currentUser = {
-                    id: 'user-123',
-                    email: email,
+                const userData = {
+                    id: 'user-' + Math.random().toString(36).substr(2, 9),
+                    email: email.trim().toLowerCase(),
                     name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1), // Capitalizar nombre
-                    role: userType || 'student' // Usar el tipo de usuario seleccionado o 'student' por defecto
+                    role: userRole,
+                    lastLogin: new Date().toISOString()
                 };
                 
-                // Guardar en localStorage si se seleccionó "Recordarme"
-                if (remember) {
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    localStorage.setItem('authToken', 'fake-jwt-token');
-                } else {
-                    // Para la sesión actual
-                    sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    sessionStorage.setItem('authToken', 'fake-jwt-token');
+                // Actualizar userType global
+                userType = userRole;
+                
+                // Determinar el almacenamiento a usar
+                const storage = remember ? localStorage : sessionStorage;
+                const otherStorage = remember ? sessionStorage : localStorage;
+                
+                try {
+                    // Guardar en el almacenamiento seleccionado
+                    storage.setItem('currentUser', JSON.stringify(userData));
+                    storage.setItem('authToken', 'fake-jwt-token-' + Date.now());
+                    
+                    // Limpiar el otro almacenamiento para evitar conflictos
+                    otherStorage.removeItem('currentUser');
+                    otherStorage.removeItem('authToken');
+                    
+                    console.log(`Sesión guardada en ${remember ? 'localStorage' : 'sessionStorage'}`);
+                    
+                    // Actualizar el estado global
+                    currentUser = userData;
+                    authToken = storage.getItem('authToken');
+                    
+                    console.log('Usuario autenticado:', currentUser);
+                    
+                    // Actualizar la interfaz de usuario
+                    updateUIAfterLogin();
+                    
+                    // Redirigir o mostrar la aplicación después de un breve retraso
+                    setTimeout(() => {
+                        // Verificar si es un profesor para redirigir a la página de construcción
+                        if (currentUser.role === 'teacher') {
+                            window.location.href = 'construction.html';
+                            return;
+                        }
+                        
+                        // Si es estudiante, mostrar la aplicación principal
+                        showApp();
+                        
+                        // Cargar mensajes existentes
+                        loadMessages();
+                        
+                        // Mostrar mensaje de bienvenida si no hay mensajes
+                        if (messagesContainer && messagesContainer.children.length === 0) {
+                            addMessage('assistant', `¡Bienvenido a SocratIA, ${currentUser.name}! ¿En qué puedo ayudarte hoy?`);
+                        }
+                        
+                        // Hacer foco en el campo de entrada de mensajes
+                        if (messageInput) {
+                            messageInput.focus();
+                        }
+                    }, 350);
+                    
+                    return true;
+                } catch (storageError) {
+                    console.error('Error al guardar la sesión:', storageError);
+                    alert('No se pudo guardar la sesión. Por favor, inténtalo de nuevo.');
+                    return false;
                 }
-                
-                console.log('Usuario autenticado:', currentUser);
-                
-                // Actualizar el correo del usuario en la interfaz si existe el elemento
-                if (userEmail) {
-                    userEmail.textContent = currentUser.email;
-                }
-                
-                // Ocultar pantalla de autenticación con transición
-                hideAuthScreen();
-                
-                // Pequeño retraso antes de redirigir o mostrar la aplicación
-                setTimeout(() => {
-                    // Verificar si es un profesor para redirigir a la página de construcción
-                    if (currentUser.role === 'teacher') {
-                        window.location.href = 'construction.html';
-                        return;
-                    }
-                    
-                    // Si es estudiante, mostrar la aplicación principal
-                    showApp();
-                    
-                    // Cargar mensajes existentes
-                    loadMessages();
-                    
-                    // Mostrar mensaje de bienvenida si no hay mensajes
-                    if (messagesContainer && messagesContainer.children.length === 0) {
-                        addMessage('assistant', `¡Bienvenido a SocratIA, ${currentUser.name}! ¿En qué puedo ayudarte hoy?`);
-                    }
-                    
-                    // Hacer foco en el campo de entrada de mensajes
-                    if (messageInput) {
-                        messageInput.focus();
-                    }
-                }, 350); // Tiempo ligeramente mayor que la duración de la transición
-                
-                return true;
             } catch (error) {
                 console.error('Error durante el proceso de autenticación:', error);
                 // Mostrar mensaje de error al usuario
@@ -282,15 +466,55 @@ function handleLogin(email, password, remember) {
     }
 }
 
+// Actualizar la interfaz de usuario después del inicio de sesión
+function updateUIAfterLogin() {
+    try {
+        // Restaurar el botón de inicio de sesión
+        const loginButton = document.querySelector('#login-form button[type="submit"]');
+        if (loginButton) {
+            loginButton.disabled = false;
+            loginButton.innerHTML = 'Iniciar sesión';
+        }
+        
+        // Actualizar el correo del usuario en la interfaz si existe el elemento
+        if (userEmail) {
+            userEmail.textContent = currentUser.email;
+        }
+        
+        // Actualizar el menú de usuario si existe
+        // Mantenemos el texto 'Menú' en lugar del nombre del usuario
+        if (menuButton) {
+            const menuText = menuButton.querySelector('.menu-text');
+            if (menuText) {
+                menuText.textContent = 'Menú';
+            }
+        }
+        
+        // Ocultar pantalla de autenticación con transición
+        hideAuthScreen();
+        
+        // Mostrar notificación de éxito
+        if (typeof showNotification === 'function') {
+            showNotification(`¡Bienvenido/a de nuevo, ${currentUser.name}!`, 'success');
+        } else {
+            console.log(`¡Bienvenido/a de nuevo, ${currentUser.name}!`);
+        }
+    } catch (error) {
+        console.error('Error al actualizar la interfaz después del inicio de sesión:', error);
+    }
+}
+
 // Manejar cierre de sesión
 function handleLogout() {
     try {
         console.log('Cerrando sesión...');
         
+        // Guardar el correo del usuario para futura referencia
+        const userEmail = currentUser ? currentUser.email : null;
+        
         // Limpiar el estado de la aplicación
         currentUser = null;
         authToken = null;
-        userType = '';
         
         // Limpiar el almacenamiento local y de sesión
         localStorage.removeItem('currentUser');
@@ -298,18 +522,28 @@ function handleLogout() {
         sessionStorage.removeItem('currentUser');
         sessionStorage.removeItem('authToken');
         
-        // Si estamos en la página de construcción o en la aplicación, redirigir al inicio
+        console.log('Datos de sesión eliminados');
+        
+        // Si estamos en la página de construcción, redirigir a index.html
         if (window.location.pathname.endsWith('construction.html') || window.location.pathname.endsWith('index.html')) {
             window.location.href = 'index.html';
             return;
         }
         
-        // Ocultar la aplicación principal
+        // Ocultar la aplicación y mostrar la pantalla de autenticación
         hideApp();
         
-        // Restablecer el formulario de inicio de sesión
+        // Limpiar el formulario de inicio de sesión si existe
         if (loginForm) {
             loginForm.reset();
+            // Restaurar el correo electrónico si existe
+            if (userEmail && emailInput) {
+                emailInput.value = userEmail;
+                // Marcar el checkbox de recordar usuario
+                if (rememberMe) {
+                    rememberMe.checked = true;
+                }
+            }
         }
         
         // Mostrar la pantalla de selección de tipo de usuario
@@ -476,9 +710,99 @@ function setupEventListeners() {
         });
     }
     
+    // Menú desplegable
+    if (menuButton && dropdownMenu) {
+        // Mostrar/ocultar menú al hacer clic
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
+            menuButton.setAttribute('aria-expanded', !isExpanded);
+            dropdownMenu.setAttribute('aria-hidden', isExpanded);
+            
+            // Agregar clase para el fondo oscuro en móvil
+            if (window.innerWidth <= 768) {
+                if (!isExpanded) {
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('menu-open');
+                } else {
+                    document.body.style.overflow = '';
+                    document.body.classList.remove('menu-open');
+                }
+            }
+        });
+        
+        // Cerrar menú al hacer clic fuera o en el fondo oscuro
+        document.addEventListener('click', (e) => {
+            const isMenuOpen = menuButton.getAttribute('aria-expanded') === 'true';
+            const isClickInsideMenu = dropdownMenu.contains(e.target) || menuButton.contains(e.target);
+            
+            if (isMenuOpen && !isClickInsideMenu) {
+                closeMenu();
+            }
+        });
+        
+        // Cerrar menú al hacer scroll en móvil
+        let lastScrollTop = 0;
+        window.addEventListener('scroll', () => {
+            if (window.innerWidth <= 768) {
+                const st = window.pageYOffset || document.documentElement.scrollTop;
+                if (Math.abs(st - lastScrollTop) > 10) {
+                    closeMenu();
+                }
+                lastScrollTop = st <= 0 ? 0 : st;
+            }
+        });
+        
+        // Función para cerrar el menú
+        function closeMenu() {
+            menuButton.setAttribute('aria-expanded', 'false');
+            dropdownMenu.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            document.body.classList.remove('menu-open');
+        }
+    }
+    
+    // Eventos de los elementos del menú
+    if (uploadMaterialBtn) {
+        uploadMaterialBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('Subir material');
+            showUploadModal();
+            menuButton.setAttribute('aria-expanded', 'false');
+            dropdownMenu.setAttribute('aria-hidden', 'true');
+        });
+    }
+    
+    if (uploadPhotoBtn) {
+        uploadPhotoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('Subir foto');
+            // Aquí puedes implementar la lógica para subir una foto
+            alert('Función de subir foto en desarrollo');
+            menuButton.setAttribute('aria-expanded', 'false');
+            dropdownMenu.setAttribute('aria-hidden', 'true');
+        });
+    }
+    
+    if (myDataBtn) {
+        myDataBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('Ver mis datos');
+            // Aquí puedes implementar la lógica para mostrar los datos del usuario
+            alert('Función de mis datos en desarrollo');
+            menuButton.setAttribute('aria-expanded', 'false');
+            dropdownMenu.setAttribute('aria-hidden', 'true');
+        });
+    }
+    
     // Cerrar sesión
     if (logoutButton) {
-        logoutButton.addEventListener('click', handleLogout);
+        logoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLogout();
+            menuButton.setAttribute('aria-expanded', 'false');
+            dropdownMenu.setAttribute('aria-hidden', 'true');
+        });
     }
     
     // Enviar mensaje al hacer submit

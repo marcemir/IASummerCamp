@@ -8,14 +8,33 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: var(--color-bg);
+        }
+        
         .construction-container {
             text-align: center;
             max-width: 600px;
-            margin: 100px auto;
+            width: 90%;
+            margin: auto;
             padding: 2rem;
             background: var(--color-bg-secondary);
             border-radius: var(--rounded-lg);
             box-shadow: var(--shadow-lg);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
         
         .construction-icon {
@@ -34,10 +53,15 @@
             color: var(--color-text-light);
             margin-bottom: 2rem;
             line-height: 1.6;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: auto;
         }
         
         .back-button {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             padding: 0.75rem 1.5rem;
             background-color: var(--color-primary);
             color: white;
@@ -45,11 +69,44 @@
             border-radius: var(--rounded);
             font-weight: 500;
             transition: var(--transition);
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
         }
         
         .back-button:hover {
             background-color: var(--color-secondary);
             transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .construction-container {
+                margin: 1rem auto;
+                padding: 1.5rem;
+                width: 85%;
+            }
+            
+            .construction-icon {
+                font-size: 3rem;
+                margin-bottom: 1rem;
+            }
+            
+            .construction-title {
+                font-size: 1.75rem;
+                margin-bottom: 0.75rem;
+            }
+            
+            .construction-message {
+                font-size: 1rem;
+                margin-bottom: 1.5rem;
+                max-width: 100%;
+            }
+            
+            .back-button {
+                width: 100%;
+                max-width: 200px;
+                justify-content: center;
+            }
         }
     </style>
 </head>
