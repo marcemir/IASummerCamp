@@ -1,13 +1,20 @@
 console.log('app.js cargado correctamente');
 
 // Elementos del DOM
-let splashScreen, userTypeScreen, authScreen, appContainer, loginForm, emailInput, passwordInput, togglePassword, rememberMe, showRegister, messagesContainer, messageForm, messageInput, sendButton, voiceButton, themeToggle, userEmail, logoutButton, studentBtn, teacherBtn;
+let splashScreen, userTypeScreen, authScreen, registerScreen, interviewScreen, appContainer, 
+    loginForm, registerForm, interviewForm, emailInput, passwordInput, togglePassword, rememberMe, 
+    showRegister, showLogin, messagesContainer, interviewMessages, messageForm, messageInput, 
+    sendButton, recordButton, stopRecordButton, themeToggle, userEmail, logoutButton, studentBtn, 
+    teacherBtn, interviewAnswer, startChatBtn;
 
 // Elementos del menú desplegable
 let menuButton, dropdownMenu, uploadMaterialBtn, uploadPhotoBtn, myDataBtn;
 
 // Elementos para carga de archivos
 let uploadButton, uploadModal, closeModal, dropArea, fileSelector, fileInfo, cancelUpload, confirmUpload, uploadProgress, progressBar, progressText;
+
+// Almacenamiento de archivos subidos
+let uploadedFiles = [];
 
 function getElement(id) {
     const element = document.getElementById(id);
@@ -38,15 +45,25 @@ function initializeDOMElements() {
     rememberMe = getElement('remember-me');
     showRegister = getElement('show-register');
     
+    // Pantallas adicionales
+    registerScreen = getElement('register-screen');
+    interviewScreen = getElement('interview-screen');
+    
     // Elementos del chat
     messagesContainer = getElement('messages');
+    interviewMessages = getElement('interview-messages');
     messageForm = getElement('message-form');
+    interviewForm = getElement('interview-form');
     messageInput = getElement('message-input');
+    interviewAnswer = getElement('interview-answer');
     sendButton = getElement('send-button');
-    voiceButton = getElement('voice-button');
+    recordButton = getElement('record-button');
+    stopRecordButton = getElement('stop-record-button');
     themeToggle = getElement('theme-toggle');
     userEmail = getElement('user-email');
     logoutButton = getElement('logout-button');
+    showLogin = getElement('show-login');
+    startChatBtn = getElement('start-chat');
     
     // Elementos del menú desplegable
     menuButton = getElement('menu-button');
@@ -82,6 +99,22 @@ function initializeDOMElements() {
 let isListening = false;
 let recognition = null;
 let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+// Estado de la entrevista
+let currentInterviewStep = 0;
+const interviewQuestions = [
+    "¿Cuál es tu nombre?",
+    "¿Cuáles son tus intereses principales?",
+    "¿Qué te gustaría aprender con SocratIA?",
+    "¿Tienes algún conocimiento previo sobre este tema?",
+    "¿Cuánto tiempo puedes dedicar al aprendizaje semanalmente?"
+];
+let interviewAnswers = [];
+
+// Variables para grabación de audio
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
 
 // Inicializar el usuario y token desde el almacenamiento al cargar la página
 let currentUser = (() => {
@@ -144,7 +177,13 @@ function init() {
 }
 
 // Flujo de la aplicación
-function startAppFlow() {
+async function startAppFlow() {
+    // Iniciar la entrevista si es un nuevo usuario
+    const newUser = localStorage.getItem('newUser') === 'true';
+    if (newUser) {
+        startInterview();
+        return;
+    }
     try {
         console.log('Iniciando flujo de la aplicación...');
         
@@ -666,6 +705,25 @@ function hideApp() {
 
 // Configurar los event listeners
 function setupEventListeners() {
+    // Mostrar formulario de registro
+    const showRegisterLink = document.getElementById('show-register');
+    const showLoginLink = document.getElementById('show-login');
+    
+    if (showRegisterLink) {
+        showRegisterLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (authScreen) authScreen.classList.add('hidden');
+            if (registerScreen) registerScreen.classList.remove('hidden');
+        });
+    }
+    
+    if (showLoginLink) {
+        showLoginLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (registerScreen) registerScreen.classList.add('hidden');
+            if (authScreen) authScreen.classList.remove('hidden');
+        });
+    }
     // Eventos de selección de tipo de usuario
     if (studentBtn) {
         studentBtn.addEventListener('click', () => {
@@ -818,9 +876,13 @@ function setupEventListeners() {
         sendButton.addEventListener('click', sendMessage);
     }
     
-    // Controlar el botón de voz
-    if (voiceButton) {
-        voiceButton.addEventListener('click', toggleVoiceRecognition);
+    // Controlar los botones de grabación de audio
+    if (recordButton) {
+        recordButton.addEventListener('click', toggleVoiceRecognition);
+    }
+    
+    if (stopRecordButton) {
+        stopRecordButton.addEventListener('click', toggleVoiceRecognition);
     }
     
     // Alternar tema
@@ -885,7 +947,7 @@ function hideTypingIndicator() {
 }
 
 // Enviar mensaje
-function sendMessage() {
+async function sendMessage() {
     const content = messageInput.value.trim();
     if (!content) return;
     
@@ -899,12 +961,77 @@ function sendMessage() {
     // Mostrar indicador de escritura
     showTypingIndicator();
     
-    // Simular respuesta del servidor (reemplazar con llamada real a la API)
-    setTimeout(() => {
+    try {
+        // Datos a enviar al servidor en el formato requerido
+        const messageData = {
+            username: currentUser ? currentUser.name : 'usuario_anonimo',
+            message: userMessage
+        };
+
+        // Mostrar información de depuración
+        const apiUrl = 'https://grupodos.app.n8n.cloud/webhook-test/chat';
+        console.log('Enviando solicitud a:', apiUrl);
+        console.log('Datos enviados:', messageData);
+
+        try {
+            // Enviar mensaje al endpoint de n8n con manejo de CORS
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                mode: 'cors', // Habilitar CORS
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
+                },
+                body: JSON.stringify(messageData)
+            });
+            
+            // Verificar si la respuesta es un JSON válido
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.log('Respuesta del servidor (texto):', text);
+                throw new Error(`Respuesta no es JSON. Estado: ${response.status} ${response.statusText}`);
+            }
+
+            console.log('Respuesta recibida. Estado:', response.status, response.statusText);
+
+            if (!response.ok) {
+                let errorDetails = '';
+                try {
+                    const errorData = await response.text();
+                    console.error('Detalles del error:', errorData);
+                    errorDetails = `\nDetalles: ${errorData}`;
+                } catch (e) {
+                    console.error('No se pudo leer el cuerpo de la respuesta de error');
+                }
+                throw new Error(`Error ${response.status}: ${response.statusText}${errorDetails}`);
+            }
+
+            const result = await response.json();
+            console.log('Respuesta del servidor (JSON):', result);
+            
+            // Ocultar indicador de escritura
+            hideTypingIndicator();
+            
+            // Mostrar la respuesta del servidor en el chat
+            if (result.response) {
+                addMessage('assistant', result.response);
+            } else if (result.message) {
+                addMessage('assistant', result.message);
+            } else {
+                addMessage('assistant', 'He recibido tu mensaje. ¿En qué más puedo ayudarte?');
+            }
+        } catch (error) {
+            console.error('Error en la petición:', error);
+            hideTypingIndicator();
+            addMessage('assistant', `Lo siento, ha ocurrido un error al enviar tu mensaje: ${error.message}`);
+        }
+    } catch (error) {
+        console.error('Error al enviar el mensaje:', error);
         hideTypingIndicator();
-        const botResponse = `He recibido tu mensaje: "${userMessage}". En una implementación real, esto sería una respuesta generada por IA.`;
-        addMessage('assistant', botResponse);
-    }, 1000);
+        addMessage('assistant', 'Lo siento, ha ocurrido un error al procesar tu mensaje. Por favor, inténtalo de nuevo.');
+    }
 }
 
 // Inicializar reconocimiento de voz
@@ -940,40 +1067,89 @@ function initSpeechRecognition() {
     };
 }
 
-// Alternar reconocimiento de voz
+// Iniciar la grabación de audio
+async function startAudioRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            await sendAudioMessage(audioBlob);
+            
+            // Detener todas las pistas del stream
+            stream.getTracks().forEach(track => track.stop());
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        
+        // Actualizar la UI
+        document.getElementById('record-button').classList.add('hidden');
+        document.getElementById('stop-record-button').classList.remove('hidden');
+        
+    } catch (error) {
+        console.error('Error al acceder al micrófono:', error);
+        addMessage('assistant', 'No se pudo acceder al micrófono. Por favor, asegúrate de haber otorgado los permisos necesarios.');
+    }
+}
+
+// Detener la grabación de audio
+function stopAudioRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+        
+        // Actualizar la UI
+        document.getElementById('record-button').classList.remove('hidden');
+        document.getElementById('stop-record-button').classList.add('hidden');
+    }
+}
+
+// Enviar mensaje de audio al servidor
+async function sendAudioMessage(audioBlob) {
+    try {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio-mensaje.wav');
+        formData.append('username', currentUser ? currentUser.name : 'usuario_anonimo');
+        
+        const response = await fetch('https://grupodos.app.n8n.cloud/webhook-test/chat', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        // Mostrar la respuesta del servidor en el chat
+        if (result.response) {
+            addMessage('assistant', result.response);
+        } else if (result.message) {
+            addMessage('assistant', result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error al enviar el audio:', error);
+        addMessage('assistant', 'Lo siento, hubo un error al procesar tu mensaje de audio.');
+    }
+}
+
+// Alternar grabación de audio
 function toggleVoiceRecognition() {
-    if (isListening) {
-        stopVoiceRecognition();
+    if (isRecording) {
+        stopAudioRecording();
     } else {
-        startVoiceRecognition();
-    }
-}
-
-// Iniciar reconocimiento de voz
-function startVoiceRecognition() {
-    if (!recognition) return;
-    
-    try {
-        recognition.start();
-        isListening = true;
-        voiceButton.classList.add('recording');
-        voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
-    } catch (error) {
-        console.error('Error al iniciar el reconocimiento de voz:', error);
-    }
-}
-
-// Detener reconocimiento de voz
-function stopVoiceRecognition() {
-    if (!recognition) return;
-    
-    try {
-        recognition.stop();
-        isListening = false;
-        voiceButton.classList.remove('recording');
-        voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-    } catch (error) {
-        console.error('Error al detener el reconocimiento de voz:', error);
+        startAudioRecording();
     }
 }
 
@@ -1169,41 +1345,80 @@ async function uploadFile() {
     }
 
     const file = fileSelector.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('userId', currentUser ? currentUser.id : 'anonymous');
+    
+    // Crear objeto con los datos a enviar
+    const messageData = {
+        username: currentUser ? currentUser.name : 'usuario_anonimo',
+        message: `Nuevo archivo subido: ${file.name}`,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size
+    };
 
     try {
         // Mostrar la barra de progreso
         if (uploadProgress) uploadProgress.style.display = 'block';
         if (confirmUpload) confirmUpload.disabled = true;
 
-        // Aquí debes reemplazar la URL con tu endpoint de n8n
-        const response = await fetch('https://tu-endpoint-n8n.com/upload', {
+        // Simular progreso de carga
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += 10;
+            if (progress > 90) clearInterval(progressInterval);
+            if (progressBar) progressBar.style.width = `${progress}%`;
+            if (progressText) progressText.textContent = `${progress}%`;
+        }, 100);
+
+        // Enviar datos al endpoint de n8n
+        const response = await fetch('https://grupodos.app.n8n.cloud/webhook-test/chat', {
             method: 'POST',
-            body: formData,
-            // Opcional: Agregar headers de autenticación si es necesario
-            // headers: {
-            //     'Authorization': `Bearer ${authToken}`
-            // },
-            onUploadProgress: (progressEvent) => {
-                if (progressEvent.lengthComputable) {
-                    const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    if (progressBar) progressBar.style.width = `${percentComplete}%`;
-                    if (progressText) progressText.textContent = `${percentComplete}%`;
-                }
-            }
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(messageData)
         });
 
+        // Completar la barra de progreso
+        clearInterval(progressInterval);
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressText) progressText.textContent = '100%';
+
         if (!response.ok) {
-            throw new Error(`Error al subir el archivo: ${response.statusText}`);
+            let errorMessage = 'Error al subir el archivo';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+                errorMessage = `Error ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();
-        console.log('Archivo subido exitosamente:', result);
+        console.log('Respuesta del servidor:', result);
 
-        // Mostrar mensaje de éxito
-        addMessage('assistant', `He recibido tu archivo "${file.name}". ¿En qué puedo ayudarte con él?`);
+        // Guardar información del archivo subido
+        if (!uploadedFiles) uploadedFiles = [];
+        uploadedFiles.push({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            uploadedAt: new Date().toISOString(),
+            status: 'subido'
+        });
+
+        // Mostrar la respuesta del servidor en el chat
+        if (result.response) {
+            // Si hay una respuesta del servidor, mostrarla
+            addMessage('assistant', result.response);
+        } else if (result.message) {
+            // Si hay un mensaje de confirmación, mostrarlo
+            addMessage('assistant', result.message);
+        } else {
+            // Mensaje por defecto si no hay respuesta específica
+            addMessage('assistant', `He recibido tu archivo "${file.name}" y lo estoy procesando. ¿En qué puedo ayudarte con él?`);
+        }
 
         // Cerrar el modal después de un breve retraso
         setTimeout(() => {
@@ -1321,6 +1536,139 @@ function setupFileUploadListeners() {
     }
     
     console.log('Configuración de listeners de carga de archivos completada');
+}
+
+// Función para manejar la selección de tipo de usuario
+function handleUserTypeSelect(type) {
+    console.log(`Tipo de usuario seleccionado: ${type}`);
+    userType = type;
+    hideUserTypeScreen();
+    showAuthScreen();
+}
+
+// Función para iniciar la entrevista
+function startInterview() {
+    hideAllScreens();
+    if (interviewScreen) {
+        interviewScreen.classList.remove('hidden');
+        
+        // Limpiar mensajes anteriores
+        if (interviewMessages) {
+            interviewMessages.innerHTML = '';
+        }
+        
+        // Mostrar mensaje de bienvenida
+        addInterviewMessage('assistant', '¡Hola! Soy tu tutor de SocratIA. Vamos a hacerte algunas preguntas para conocerte mejor y personalizar tu experiencia.');
+        
+        // Mostrar la primera pregunta después de un breve retraso
+        setTimeout(() => {
+            addInterviewMessage('assistant', interviewQuestions[0]);
+        }, 500);
+    }
+}
+
+// Función para manejar las respuestas de la entrevista
+async function handleInterviewAnswer(answer) {
+    if (!answer) return;
+    
+    // Guardar la respuesta
+    interviewAnswers.push(answer);
+    
+    // Mostrar la respuesta del usuario
+    addInterviewMessage('user', answer);
+    
+    // Limpiar el input
+    if (interviewAnswer) {
+        interviewAnswer.value = '';
+    }
+    
+    // Verificar si hay más preguntas
+    if (currentInterviewStep < interviewQuestions.length - 1) {
+        currentInterviewStep++;
+        
+        // Mostrar la siguiente pregunta después de un breve retraso
+        setTimeout(() => {
+            addInterviewMessage('assistant', interviewQuestions[currentInterviewStep]);
+        }, 800);
+    } else {
+        // Entrevista completada
+        setTimeout(() => {
+            // Mostrar pantalla de finalización
+            const interviewForm = document.getElementById('interview-form');
+            const interviewComplete = document.getElementById('interview-complete');
+            
+            if (interviewForm) interviewForm.classList.add('hidden');
+            if (interviewComplete) interviewComplete.classList.remove('hidden');
+            
+            // Guardar respuestas en el almacenamiento local
+            const userData = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            userData.interviewAnswers = interviewAnswers;
+            localStorage.setItem('currentUser', JSON.stringify(userData));
+            
+            // Marcar como usuario existente
+            localStorage.setItem('newUser', 'false');
+            
+            // Enviar respuestas al backend
+            sendInterviewAnswers(userData);
+        }, 1000);
+    }
+}
+
+// Función para enviar las respuestas de la entrevista al backend
+async function sendInterviewAnswers(userData) {
+    try {
+        const response = await fetch('https://grupodos.app.n8n.cloud/webhook-test/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'interview_answers',
+                userId: userData.id || 'anonymous',
+                email: userData.email || '',
+                answers: interviewAnswers
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error al enviar las respuestas');
+        }
+        
+        console.log('Respuestas de la entrevista guardadas exitosamente');
+    } catch (error) {
+        console.error('Error al enviar las respuestas:', error);
+    }
+}
+
+// Función para añadir mensajes a la entrevista
+function addInterviewMessage(role, content) {
+    if (!interviewMessages) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${role}`;
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <p>${content}</p>
+        </div>
+    `;
+    interviewMessages.appendChild(messageDiv);
+    scrollInterviewToBottom();
+}
+
+// Función para desplazarse al final de los mensajes de la entrevista
+function scrollInterviewToBottom() {
+    if (interviewMessages) {
+        interviewMessages.scrollTop = interviewMessages.scrollHeight;
+    }
+}
+
+// Ocultar todas las pantallas
+function hideAllScreens() {
+    const screens = [splashScreen, userTypeScreen, authScreen, registerScreen, interviewScreen, appContainer];
+    screens.forEach(screen => {
+        if (screen) screen.classList.add('hidden');
+    });
 }
 
 // Inicializar la aplicación cuando el DOM esté listo

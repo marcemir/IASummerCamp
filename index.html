@@ -104,6 +104,110 @@
         </div>
     </div>
 
+    <!-- Pantalla de Registro -->
+    <div id="register-screen" class="auth-screen hidden">
+        <div class="auth-container">
+            <div class="auth-header">
+                <img src="images/logo_simple.jpeg" alt="SocratIA Logo" class="auth-logo">
+                <h2 class="auth-title">Crear cuenta</h2>
+                <p>Completa tus datos para registrarte</p>
+            </div>
+            
+            <form id="register-form" class="auth-form">
+                <div class="form-group">
+                    <label for="register-name">Nombre completo</label>
+                    <input 
+                        type="text" 
+                        id="register-name" 
+                        name="name" 
+                        required 
+                        placeholder="Tu nombre completo"
+                        autocomplete="name"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="register-email">Correo electrónico</label>
+                    <input 
+                        type="email" 
+                        id="register-email" 
+                        name="email" 
+                        required 
+                        placeholder="tucorreo@ejemplo.com"
+                        autocomplete="email"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="register-password">Contraseña</label>
+                    <div class="password-input">
+                        <input 
+                            type="password" 
+                            id="register-password" 
+                            name="password" 
+                            required 
+                            minlength="6"
+                            placeholder="••••••••"
+                            autocomplete="new-password"
+                        >
+                        <button type="button" class="toggle-password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <button type="submit" class="auth-button">Iniciar entrevista</button>
+                
+                <p class="auth-footer">
+                    ¿Ya tienes una cuenta? <a href="#" id="show-login">Inicia sesión</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pantalla de Entrevista -->
+    <div id="interview-screen" class="app-container hidden">
+        <header class="app-header">
+            <div class="header-left">
+                <h1>Conóceme mejor</h1>
+            </div>
+        </header>
+        
+        <main class="chat-container">
+            <div id="interview-messages" class="messages">
+                <!-- Los mensajes de la entrevista se insertarán aquí -->
+                <div class="message assistant">
+                    <div class="message-content">
+                        <p>¡Hola! Soy tu tutor de SocratIA. Vamos a hacerte algunas preguntas para conocerte mejor y personalizar tu experiencia.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <form id="interview-form" class="message-form">
+                <div class="input-container">
+                    <textarea 
+                        id="interview-answer" 
+                        class="message-input" 
+                        placeholder="Escribe tu respuesta aquí..."
+                        rows="1"
+                        required
+                    ></textarea>
+                    <button type="submit" class="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </main>
+        
+        <div id="interview-complete" class="interview-complete hidden">
+            <h3>¡Entrevista completada!</h3>
+            <p>Gracias por compartir esta información. Ahora estamos listos para comenzar.</p>
+            <button id="start-chat" class="auth-button">Comenzar a usar SocratIA</button>
+        </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Aplicación Principal (oculta inicialmente) -->
     <div id="app-container" class="app-container hidden">
         <header class="app-header">
@@ -179,9 +283,13 @@
                     <button type="button" id="send-button" class="send-button">
                         <i class="fas fa-paper-plane"></i>
                     </button>
-                    <button type="button" id="voice-button" class="voice-button">
+                    <button type="button" id="record-button" class="voice-button">
                         <i class="fas fa-microphone"></i>
                     </button>
+                    <button type="button" id="stop-record-button" class="voice-button hidden">
+                        <i class="fas fa-stop"></i>
+                    </button>
+                    <audio id="audio-preview" controls class="hidden"></audio>
                 </form>
             </div>
             
