@@ -1,7 +1,7 @@
 console.log('app.js cargado correctamente');
 
 // Elementos del DOM
-let splashScreen, authScreen, appContainer, loginForm, emailInput, passwordInput, togglePassword, rememberMe, showRegister, messagesContainer, messageForm, messageInput, sendButton, voiceButton, themeToggle, userEmail, logoutButton;
+let splashScreen, userTypeScreen, authScreen, appContainer, loginForm, emailInput, passwordInput, togglePassword, rememberMe, showRegister, messagesContainer, messageForm, messageInput, sendButton, voiceButton, themeToggle, userEmail, logoutButton, studentBtn, teacherBtn;
 
 // Elementos para carga de archivos
 let uploadButton, uploadModal, closeModal, dropArea, fileSelector, fileInfo, cancelUpload, confirmUpload, uploadProgress, progressBar, progressText;
@@ -19,8 +19,13 @@ function initializeDOMElements() {
     
     // Pantallas
     splashScreen = getElement('splash-screen');
+    userTypeScreen = getElement('user-type-screen');
     authScreen = getElement('auth-screen');
     appContainer = getElement('app-container');
+    
+    // Botones de selección de tipo de usuario
+    studentBtn = getElement('student-btn');
+    teacherBtn = getElement('teacher-btn');
     
     // Elementos de autenticación
     loginForm = getElement('login-form');
@@ -69,6 +74,7 @@ let recognition = null;
 let isDarkMode = localStorage.getItem('darkMode') === 'true';
 let currentUser = JSON.parse(localStorage.getItem('currentUser'));
 let authToken = localStorage.getItem('authToken');
+let userType = ''; // 'student' o 'teacher'
 
 // Inicialización
 function init() {
@@ -121,9 +127,8 @@ function startAppFlow() {
             try {
                 hideSplashScreen();
                 
-                // Siempre mostrar la pantalla de autenticación, incluso si hay una sesión guardada
-                // para forzar al usuario a iniciar sesión manualmente
-                showAuthScreen();
+                // Mostrar la pantalla de selección de tipo de usuario
+                showUserTypeScreen();
                 
                 // Limpiar cualquier sesión existente
                 currentUser = null;
@@ -212,7 +217,7 @@ function handleLogin(email, password, remember) {
                     id: 'user-123',
                     email: email,
                     name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1), // Capitalizar nombre
-                    role: 'student'
+                    role: userType || 'student' // Usar el tipo de usuario seleccionado o 'student' por defecto
                 };
                 
                 // Guardar en localStorage si se seleccionó "Recordarme"
@@ -235,9 +240,15 @@ function handleLogin(email, password, remember) {
                 // Ocultar pantalla de autenticación con transición
                 hideAuthScreen();
                 
-                // Pequeño retraso antes de mostrar la aplicación para permitir la transición
+                // Pequeño retraso antes de redirigir o mostrar la aplicación
                 setTimeout(() => {
-                    // Mostrar la aplicación principal
+                    // Verificar si es un profesor para redirigir a la página de construcción
+                    if (currentUser.role === 'teacher') {
+                        window.location.href = 'construction.html';
+                        return;
+                    }
+                    
+                    // Si es estudiante, mostrar la aplicación principal
                     showApp();
                     
                     // Cargar mensajes existentes
@@ -270,47 +281,41 @@ function handleLogin(email, password, remember) {
         return false;
     }
 }
+
 // Manejar cierre de sesión
 function handleLogout() {
     try {
         console.log('Cerrando sesión...');
         
-        // Limpiar datos de autenticación en memoria
+        // Limpiar el estado de la aplicación
         currentUser = null;
         authToken = null;
+        userType = '';
         
-        // Limpiar almacenamiento local y de sesión
+        // Limpiar el almacenamiento local y de sesión
         localStorage.removeItem('currentUser');
         localStorage.removeItem('authToken');
         sessionStorage.removeItem('currentUser');
         sessionStorage.removeItem('authToken');
         
-        // Limpiar mensajes del contenedor si existe
-        if (messagesContainer) {
-            messagesContainer.innerHTML = '';
+        // Si estamos en la página de construcción o en la aplicación, redirigir al inicio
+        if (window.location.pathname.endsWith('construction.html') || window.location.pathname.endsWith('index.html')) {
+            window.location.href = 'index.html';
+            return;
         }
         
-        // Ocultar la aplicación con transición
+        // Ocultar la aplicación principal
         hideApp();
         
-        // Pequeño retraso antes de mostrar la pantalla de autenticación
-        setTimeout(() => {
-            // Mostrar pantalla de autenticación
-            showAuthScreen();
-            
-            // Restablecer el formulario de inicio de sesión si existe
-            if (loginForm) {
-                loginForm.reset();
-            }
-            
-            // Hacer foco en el campo de correo electrónico si existe
-            if (emailInput) {
-                emailInput.focus();
-            }
-            
-            console.log('Sesión cerrada correctamente');
-        }, 350); // Tiempo ligeramente mayor que la duración de la transición
+        // Restablecer el formulario de inicio de sesión
+        if (loginForm) {
+            loginForm.reset();
+        }
         
+        // Mostrar la pantalla de selección de tipo de usuario
+        showUserTypeScreen();
+        
+        console.log('Sesión cerrada correctamente');
         return true;
     } catch (error) {
         console.error('Error al cerrar sesión:', error);
@@ -323,6 +328,29 @@ function handleLogout() {
 }
 
 // Mostrar/ocultar pantallas
+function showUserTypeScreen() {
+    try {
+        console.log('Mostrando pantalla de selección de tipo de usuario');
+        if (userTypeScreen) {
+            userTypeScreen.classList.remove('hidden');
+        } else {
+            console.error('Error: No se pudo encontrar el elemento userTypeScreen');
+        }
+    } catch (error) {
+        console.error('Error al mostrar la pantalla de selección de tipo de usuario:', error);
+    }
+}
+
+function hideUserTypeScreen() {
+    try {
+        if (userTypeScreen) {
+            userTypeScreen.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error al ocultar la pantalla de selección de tipo de usuario:', error);
+    }
+}
+
 function showSplashScreen() {
     console.log('Mostrando pantalla de inicio...');
     if (splashScreen) {
@@ -404,6 +432,25 @@ function hideApp() {
 
 // Configurar los event listeners
 function setupEventListeners() {
+    // Eventos de selección de tipo de usuario
+    if (studentBtn) {
+        studentBtn.addEventListener('click', () => {
+            console.log('Seleccionado: Estudiante');
+            userType = 'student';
+            hideUserTypeScreen();
+            showAuthScreen();
+        });
+    }
+    
+    if (teacherBtn) {
+        teacherBtn.addEventListener('click', () => {
+            console.log('Seleccionado: Profesor');
+            userType = 'teacher';
+            hideUserTypeScreen();
+            showAuthScreen();
+        });
+    }
+    
     // Eventos de autenticación
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {

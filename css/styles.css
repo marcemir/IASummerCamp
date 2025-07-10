@@ -44,6 +44,70 @@
   box-shadow: none !important;
 }
 
+/* Pantalla de selección de tipo de usuario */
+.user-type-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  padding: 2rem;
+}
+
+.user-type-container {
+  background: var(--color-bg-secondary);
+  border-radius: var(--rounded-lg);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.user-type-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.user-type-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.25rem 2rem;
+  border: none;
+  border-radius: var(--rounded);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  color: white;
+}
+
+.user-type-btn i {
+  font-size: 1.5rem;
+}
+
+.student-btn {
+  background-color: var(--color-secondary);
+}
+
+.student-btn:hover {
+  background-color: #2c5282;
+  transform: translateY(-2px);
+}
+
+.teacher-btn {
+  background-color: var(--color-primary);
+}
+
+.teacher-btn:hover {
+  background-color: #2c5282;
+  transform: translateY(-2px);
+}
+
 /* Estilos base */
 * {
   margin: 0;
@@ -536,6 +600,28 @@ body {
 
 .auth-footer a:hover {
   text-decoration: underline;
+}
+
+/* Estilos para el título en la pantalla de autenticación */
+.auth-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0.5rem 0 0.25rem;
+  text-align: center;
+}
+
+.auth-title-text {
+  color: #31d6e9; /* Turquesa para 'Socrat' */
+  font-weight: 700;
+  text-shadow: 0 0 15px rgba(49, 214, 233, 0.3);
+}
+
+.auth-title-highlight {
+  color: #C73EA5; /* Rosa para 'IA' */
+  font-weight: 700;
+  text-shadow: 0 0 15px rgba(199, 62, 165, 0.3);
 }
 
 /* Dark theme overrides */
