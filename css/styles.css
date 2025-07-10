@@ -1284,6 +1284,193 @@ body {
 }
 
 /* Estilos para mensajes de error de validación */
+/* Estilos para el formulario de entrevista */
+#interview-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+#interview-screen .app-header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+#interview-screen .app-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+#interview-screen .interview-container {
+  flex: 1;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+#interview-screen .interview-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+#interview-screen .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+#interview-screen label {
+  font-weight: 500;
+  color: var(--color-text);
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+#interview-screen input[type="text"],
+#interview-screen textarea,
+#interview-screen select {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded);
+  font-size: 1rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: all 0.2s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+}
+
+#interview-screen textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+#interview-screen select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23718096' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+#interview-screen input[type="text"]:hover,
+#interview-screen textarea:hover,
+#interview-screen select:hover {
+  border-color: var(--color-text-light);
+}
+
+#interview-screen input[type="text"]:focus,
+#interview-screen textarea:focus,
+#interview-screen select:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
+}
+
+#interview-screen .form-actions {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  background: var(--color-bg);
+  padding-bottom: 1rem;
+  z-index: 5;
+}
+
+#interview-screen .submit-button {
+  background-color: var(--color-secondary);
+  color: white;
+  border: none;
+  border-radius: var(--rounded);
+  padding: 0.875rem 2.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 180px;
+}
+
+#interview-screen .submit-button:hover {
+  background-color: #2b6cb0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+#interview-screen .submit-button:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Ajustes para modo oscuro */
+.dark-theme #interview-screen input[type="text"],
+.dark-theme #interview-screen textarea,
+.dark-theme #interview-screen select {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.dark-theme #interview-screen select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* Asegurar que los placeholders sean visibles */
+#interview-screen input::placeholder,
+#interview-screen textarea::placeholder {
+  color: var(--color-text-light);
+  opacity: 0.7;
+}
+
+#interview-screen input:focus::placeholder,
+#interview-screen textarea:focus::placeholder {
+  opacity: 0.5;
+}
+
+/* Ajustes para móviles */
+@media (max-width: 640px) {
+  #interview-screen .interview-container {
+    padding: 1rem;
+  }
+  
+  #interview-screen .submit-button {
+    width: 100%;
+  }
+}
+
 .error-message {
   color: #e53e3e;
   font-size: 0.875rem;

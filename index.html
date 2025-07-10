@@ -115,13 +115,13 @@
             
             <form id="register-form" class="auth-form">
                 <div class="form-group">
-                    <label for="register-name">Nombre completo</label>
+                    <label for="register-name">Nombre</label>
                     <input 
                         type="text" 
                         id="register-name" 
                         name="name" 
                         required 
-                        placeholder="Tu nombre completo"
+                        placeholder="Tu nombre"
                         autocomplete="name"
                     >
                 </div>
@@ -169,32 +169,64 @@
     <div id="interview-screen" class="app-container hidden">
         <header class="app-header">
             <div class="header-left">
-                <h1>Conóceme mejor</h1>
+                <h1>Cuéntame sobre ti</h1>
             </div>
         </header>
         
-        <main class="chat-container">
-            <div id="interview-messages" class="messages">
-                <!-- Los mensajes de la entrevista se insertarán aquí -->
-                <div class="message assistant">
-                    <div class="message-content">
-                        <p>¡Hola! Soy tu tutor de SocratIA. Vamos a hacerte algunas preguntas para conocerte mejor y personalizar tu experiencia.</p>
-                    </div>
+        <main class="interview-container">
+            <form id="interview-form" class="interview-form">
+                <div class="form-group">
+                    <label for="preferred_name">¿Cómo prefieres que te llame?</label>
+                    <input type="text" id="preferred_name" name="preferred_name" required>
                 </div>
-            </div>
-            
-            <form id="interview-form" class="message-form">
-                <div class="input-container">
-                    <textarea 
-                        id="interview-answer" 
-                        class="message-input" 
-                        placeholder="Escribe tu respuesta aquí..."
-                        rows="1"
-                        required
-                    ></textarea>
-                    <button type="submit" class="send-button">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
+                
+                <div class="form-group">
+                    <label for="hard_subject">¿Qué asignatura se te hace más difícil?</label>
+                    <input type="text" id="hard_subject" name="hard_subject" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="goal_grade">¿Qué nota mínima te gustaría sacar?</label>
+                    <input type="text" id="goal_grade" name="goal_grade" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="critical_exam">¿Tienes algún examen importante próximamente? (ej: selectividad, Cambridge...)</label>
+                    <input type="text" id="critical_exam" name="critical_exam">
+                </div>
+                
+                <div class="form-group">
+                    <label for="dream_career">¿Qué te gustaría ser de mayor?</label>
+                    <input type="text" id="dream_career" name="dream_career" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="career_reason">¿Qué es lo que más te atrae de esa profesión?</label>
+                    <textarea id="career_reason" name="career_reason" rows="2" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="main_hobby">¿Cuál es tu hobby principal?</label>
+                    <input type="text" id="main_hobby" name="main_hobby" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="favourite_media">¿Cuál es tu serie, película o libro favorito?</label>
+                    <input type="text" id="favourite_media" name="favourite_media" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pref_modality">¿Cómo prefieres que te ayude?</label>
+                    <select id="pref_modality" name="pref_modality" required>
+                        <option value="">Selecciona una opción</option>
+                        <option value="voice">Solo voz</option>
+                        <option value="text">Solo texto</option>
+                        <option value="mixed">Me da igual, lo que prefieras</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="submit-button">Guardar respuestas</button>
                 </div>
             </form>
         </main>

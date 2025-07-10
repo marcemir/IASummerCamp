@@ -1,3 +1,5 @@
+// HOLA
+
 console.log('app.js cargado correctamente');
 
 // Elementos del DOM
@@ -130,49 +132,100 @@ let currentUser = (() => {
 let authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || null;
 let userType = currentUser?.role || null; // 'student' o 'teacher'
 
+// Mostrar pantalla de error crítica
+function showErrorScreen(message) {
+    // Ocultar splash si está visible
+    if (splashScreen) {
+        splashScreen.style.display = 'none';
+        splashScreen.classList.add('hidden');
+    }
+    // Crear o reutilizar un div de error
+    let errorDiv = document.getElementById('critical-error-screen');
+    if (!errorDiv) {
+        errorDiv = document.createElement('div');
+        errorDiv.id = 'critical-error-screen';
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '0';
+        errorDiv.style.left = '0';
+        errorDiv.style.width = '100%';
+        errorDiv.style.height = '100%';
+        errorDiv.style.background = '#fff';
+        errorDiv.style.zIndex = '99999';
+        errorDiv.style.display = 'flex';
+        errorDiv.style.flexDirection = 'column';
+        errorDiv.style.justifyContent = 'center';
+        errorDiv.style.alignItems = 'center';
+        errorDiv.style.fontFamily = 'Poppins, Arial, sans-serif';
+        errorDiv.style.color = '#b91c1c';
+        errorDiv.style.fontSize = '1.3rem';
+        errorDiv.innerHTML = '';
+        document.body.appendChild(errorDiv);
+    }
+    errorDiv.innerHTML = `
+        <div style="max-width: 500px; padding: 30px; border-radius: 12px; background: #fee2e2; box-shadow: 0 2px 16px #0002; text-align: center;">
+            <h2 style="margin-bottom: 20px;">¡Ups! Ocurrió un error</h2>
+            <p style="margin-bottom: 20px;">${message || 'No se pudo cargar la aplicación. Por favor, recarga la página.'}</p>
+            <button onclick="window.location.reload()" style="padding: 10px 28px; border: none; border-radius: 6px; background: #b91c1c; color: #fff; font-size: 1.1rem; cursor: pointer;">Recargar página</button>
+        </div>
+    `;
+}
+
 // Inicialización
-function init() {
+async function init() {
     try {
         console.log('Inicializando la aplicación...');
-        
-        // Inicializar elementos del DOM
-        initializeDOMElements();
-        
-        // Configurar el tema
-        updateTheme();
-        
-        // Configurar eventos
+
+        // 1. Inicializar elementos del DOM
+        if (!initializeDOMElements()) {
+            console.error('Error al inicializar elementos del DOM');
+            showErrorScreen('Error al cargar la aplicación. Por favor, recarga la página.');
+            return;
+        }
+
+        // 2. Configurar eventos
         setupEventListeners();
-        
-        // Configurar carga de archivos
-        setupFileUploadListeners();
-        
-        // Verificar autenticación antes de iniciar el flujo
+
+        // 3. Configurar tema
+        updateTheme();
+
+        // 4. Verificar autenticación
         if (isAuthenticated()) {
-            console.log('Usuario ya autenticado:', currentUser?.email);
-            
-            // Si estamos en la página de login pero ya estamos autenticados, redirigir según el rol
-            if (window.location.pathname.endsWith('index.html')) {
-                if (currentUser?.role === 'teacher') {
-                    window.location.href = 'construction.html';
-                } else {
-                    // Si es estudiante, mostrar la aplicación principal
+            console.log('Usuario autenticado:', currentUser);
+
+            // Mostrar pantalla de inicio por un momento
+            showSplashScreen();
+
+            // Pequeño retraso para mostrar el splash screen
+            setTimeout(async () => {
+                try {
+                    await hideSplashScreen();
                     showApp();
                     loadMessages();
-                    if (messagesContainer && messagesContainer.children.length === 0) {
-                        addMessage('assistant', `¡Bienvenido de nuevo, ${currentUser.name}! ¿En qué puedo ayudarte hoy?`);
-                    }
+                } catch (e) {
+                    console.error('Error tras splashScreen:', e);
+                    showErrorScreen('Error tras cargar el logo. Por favor, recarga la página.');
                 }
-                return;
-            }
+            }, 1000);
+        } else {
+            // 5. Mostrar pantalla de inicio
+            showSplashScreen();
+
+            // Después de 1.5 segundos, mostrar la pantalla de selección de usuario
+            setTimeout(async () => {
+                try {
+                    await hideSplashScreen();
+                    showUserTypeScreen();
+                } catch (e) {
+                    console.error('Error tras splashScreen (no autenticado):', e);
+                    showErrorScreen('Error tras cargar el logo. Por favor, recarga la página.');
+                }
+            }, 1500);
         }
-        
-        // Iniciar el flujo de la aplicación
-        startAppFlow();
-        
+
         console.log('Aplicación inicializada correctamente');
     } catch (error) {
-        console.error('Error al inicializar la aplicación:', error);
+        console.error('Error en la inicialización:', error);
+        showErrorScreen('Error crítico al cargar la aplicación. Por favor, recarga la página.');
     }
 }
 
@@ -422,14 +475,20 @@ function handleLogin(email, password, remember) {
                 // Asegurarse de que userType esté definido
                 const userRole = userType || 'student';
                 
-                // Datos de usuario de ejemplo
+                // Obtener datos existentes del usuario si existen
+                const existingUser = JSON.parse(localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser') || '{}');
+                
+                // Datos de usuario, conservando los existentes
                 const userData = {
-                    id: 'user-' + Math.random().toString(36).substr(2, 9),
+                    ...existingUser, // Mantener datos existentes (incluyendo la entrevista)
+                    id: existingUser.id || 'user-' + Math.random().toString(36).substr(2, 9),
                     email: email.trim().toLowerCase(),
-                    name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1), // Capitalizar nombre
+                    name: existingUser.preferred_name || email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1), // Usar preferred_name si existe
                     role: userRole,
                     lastLogin: new Date().toISOString()
                 };
+                
+                console.log('Datos del usuario al iniciar sesión:', userData);
                 
                 // Actualizar userType global
                 userType = userRole;
@@ -626,26 +685,65 @@ function hideUserTypeScreen() {
 
 function showSplashScreen() {
     console.log('Mostrando pantalla de inicio...');
-    if (splashScreen) {
+    
+    // Asegurarse de que el elemento existe
+    if (!splashScreen) {
+        console.error('No se pudo encontrar el elemento splashScreen');
+        return false;
+    }
+    
+    try {
         // Asegurarse de que no esté oculto por CSS
-        splashScreen.classList.remove('hidden');
         splashScreen.style.display = 'flex';
+        splashScreen.style.opacity = '0';
+        splashScreen.classList.remove('hidden');
+        
         // Forzar un reflow para que la transición funcione
         void splashScreen.offsetHeight;
-        splashScreen.style.opacity = '1';
-    } else {
-        console.error('No se pudo mostrar la pantalla de inicio: elemento no encontrado');
+        
+        // Aplicar la opacidad con transición
+        setTimeout(() => {
+            splashScreen.style.opacity = '1';
+        }, 10);
+        
+        console.log('Pantalla de inicio mostrada correctamente');
+        return true;
+    } catch (error) {
+        console.error('Error al mostrar la pantalla de inicio:', error);
+        return false;
     }
 }
 
 function hideSplashScreen() {
     console.log('Ocultando pantalla de inicio...');
-    if (splashScreen) {
+    
+    // Asegurarse de que el elemento existe
+    if (!splashScreen) {
+        console.error('No se pudo encontrar el elemento splashScreen');
+        return false;
+    }
+    
+    try {
+        // Iniciar la transición de opacidad
         splashScreen.style.opacity = '0';
-        setTimeout(() => {
-            splashScreen.style.display = 'none';
-            splashScreen.classList.add('hidden');
-        }, 300);
+        
+        // Esperar a que termine la transición antes de ocultar el elemento
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                try {
+                    splashScreen.style.display = 'none';
+                    splashScreen.classList.add('hidden');
+                    console.log('Pantalla de inicio ocultada correctamente');
+                    resolve(true);
+                } catch (error) {
+                    console.error('Error al ocultar la pantalla de inicio:', error);
+                    resolve(false);
+                }
+            }, 300); // Tiempo de la transición en ms
+        });
+    } catch (error) {
+        console.error('Error al iniciar la transición de la pantalla de inicio:', error);
+        return Promise.resolve(false);
     }
 }
 
@@ -712,16 +810,27 @@ function setupEventListeners() {
     if (showRegisterLink) {
         showRegisterLink.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log('Mostrando pantalla de registro');
             if (authScreen) authScreen.classList.add('hidden');
-            if (registerScreen) registerScreen.classList.remove('hidden');
+            if (registerScreen) {
+                registerScreen.classList.remove('hidden');
+                // Enfocar el primer campo del formulario
+                const nameInput = document.getElementById('register-name');
+                if (nameInput) nameInput.focus();
+            }
         });
     }
     
     if (showLoginLink) {
         showLoginLink.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log('Mostrando pantalla de login');
             if (registerScreen) registerScreen.classList.add('hidden');
-            if (authScreen) authScreen.classList.remove('hidden');
+            if (authScreen) {
+                authScreen.classList.remove('hidden');
+                // Enfocar el campo de email
+                if (emailInput) emailInput.focus();
+            }
         });
     }
     // Eventos de selección de tipo de usuario
@@ -753,6 +862,61 @@ function setupEventListeners() {
             
             if (email && password) {
                 handleLogin(email, password, remember);
+            }
+        });
+    }
+    
+    // Evento de registro
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('Enviando formulario de registro');
+            
+            // Obtener los datos del formulario
+            const name = document.getElementById('register-name').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+            
+            if (name && email && password) {
+                try {
+                    // Mostrar indicador de carga
+                    const submitButton = registerForm.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.innerHTML;
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                    
+                    // Simular un retraso para la operación asíncrona
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Guardar los datos del usuario en localStorage
+                    const userData = {
+                        name: name,
+                        email: email,
+                        role: 'student',
+                        isAuthenticated: true,
+                        hasCompletedInterview: false,
+                        registrationDate: new Date().toISOString()
+                    };
+                    
+                    localStorage.setItem('currentUser', JSON.stringify(userData));
+                    console.log('Usuario registrado:', userData);
+                    
+                    // Ocultar pantalla de registro y mostrar pantalla de entrevista
+                    if (registerScreen) registerScreen.classList.add('hidden');
+                    if (interviewScreen) {
+                        interviewScreen.classList.remove('hidden');
+                        // Iniciar la entrevista
+                        startInterview();
+                    }
+                } catch (error) {
+                    console.error('Error en el registro:', error);
+                    alert('Ocurrió un error al procesar el registro. Por favor, inténtalo de nuevo.');
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
+                }
+            } else {
+                alert('Por favor, completa todos los campos del formulario.');
             }
         });
     }
@@ -911,11 +1075,29 @@ function addMessage(role, content, timestamp = new Date()) {
         minute: '2-digit' 
     });
     
-    messageElement.innerHTML = `
-        <div class="message-content">${content}</div>
-        <div class="message-time">${timeString}</div>
-    `;
+    // Crear contenedor de contenido de forma segura
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 'message-content';
     
+    // Si el contenido es HTML, usamos innerHTML, de lo contrario textContent
+    if (content.includes('<') && content.includes('>')) {
+        // Si parece contener HTML, lo añadimos directamente
+        contentContainer.innerHTML = content;
+    } else {
+        // Si es texto plano, usamos textContent para seguridad
+        contentContainer.textContent = content;
+    }
+    
+    // Crear elemento de tiempo
+    const timeElement = document.createElement('div');
+    timeElement.className = 'message-time';
+    timeElement.textContent = timeString;
+    
+    // Añadir elementos al mensaje
+    messageElement.appendChild(contentContainer);
+    messageElement.appendChild(timeElement);
+    
+    // Añadir mensaje al contenedor
     messagesContainer.appendChild(messageElement);
     scrollToBottom();
     
@@ -946,93 +1128,99 @@ function hideTypingIndicator() {
     }
 }
 
-// Enviar mensaje
+// Función para enviar mensajes
 async function sendMessage() {
-    const content = messageInput.value.trim();
-    if (!content) return;
-    
-    // Añadir mensaje del usuario
-    const userMessage = content;
+    const userMessage = messageInput.value.trim();
+    if (!userMessage) return;
+
+    // Mostrar mensaje del usuario
     addMessage('user', userMessage);
-    
-    // Limpiar el input
     messageInput.value = '';
-    
+
     // Mostrar indicador de escritura
     showTypingIndicator();
-    
+
     try {
-        // Datos a enviar al servidor en el formato requerido
+        // Usar 'Marcelo' como user_id fijo
+        const userId = 'Marcelo';
+        
+        // Datos a enviar
         const messageData = {
-            username: currentUser ? currentUser.name : 'usuario_anonimo',
+            user_id: userId,
             message: userMessage
         };
+        
+        console.log('Enviando mensaje como usuario:', userId);
 
-        // Mostrar información de depuración
-        const apiUrl = 'https://grupodos.app.n8n.cloud/webhook-test/chat';
+        // URL de la API
+        const apiUrl = 'https://grupodos.app.n8n.cloud/webhook/chat';
         console.log('Enviando solicitud a:', apiUrl);
-        console.log('Datos enviados:', messageData);
 
-        try {
-            // Enviar mensaje al endpoint de n8n con manejo de CORS
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                mode: 'cors', // Habilitar CORS
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Origin': window.location.origin
-                },
-                body: JSON.stringify(messageData)
-            });
+        // Convertir a form-urlencoded
+        const body = new URLSearchParams();
+        Object.entries(messageData).forEach(([k, v]) => body.append(k, v));
+
+        // Enviar petición
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            body
+        });
+
+        // Verificar respuesta
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        // Procesar respuesta
+        let result = {};
+        try { 
+            const responseData = await response.text();
+            console.log('Respuesta en texto plano:', responseData);
             
-            // Verificar si la respuesta es un JSON válido
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.log('Respuesta del servidor (texto):', text);
-                throw new Error(`Respuesta no es JSON. Estado: ${response.status} ${response.statusText}`);
-            }
-
-            console.log('Respuesta recibida. Estado:', response.status, response.statusText);
-
-            if (!response.ok) {
-                let errorDetails = '';
-                try {
-                    const errorData = await response.text();
-                    console.error('Detalles del error:', errorData);
-                    errorDetails = `\nDetalles: ${errorData}`;
-                } catch (e) {
-                    console.error('No se pudo leer el cuerpo de la respuesta de error');
-                }
-                throw new Error(`Error ${response.status}: ${response.statusText}${errorDetails}`);
-            }
-
-            const result = await response.json();
-            console.log('Respuesta del servidor (JSON):', result);
-            
-            // Ocultar indicador de escritura
-            hideTypingIndicator();
-            
-            // Mostrar la respuesta del servidor en el chat
-            if (result.response) {
-                addMessage('assistant', result.response);
-            } else if (result.message) {
-                addMessage('assistant', result.message);
-            } else {
-                addMessage('assistant', 'He recibido tu mensaje. ¿En qué más puedo ayudarte?');
+            // Intentar parsear como JSON
+            try {
+                result = JSON.parse(responseData);
+                console.log('Respuesta parseada como JSON:', result);
+            } catch (e) {
+                console.log('La respuesta no es JSON válido, se tratará como texto plano');
+                result = { response: responseData };
             }
         } catch (error) {
-            console.error('Error en la petición:', error);
-            hideTypingIndicator();
-            addMessage('assistant', `Lo siento, ha ocurrido un error al enviar tu mensaje: ${error.message}`);
+            console.error('Error al procesar la respuesta:', error);
+            throw new Error('Error al procesar la respuesta del servidor');
         }
+
+        console.log('Respuesta del servidor:', result);
+
+        // Mostrar respuesta al usuario
+        let responseText = '';
+        
+        // Intentar obtener el mensaje de diferentes posibles formatos de respuesta
+        if (result.output) {
+            responseText = result.output;
+        } else if (result.response) {
+            responseText = result.response;
+        } else if (result.message) {
+            responseText = result.message;
+        } else if (result.text) {
+            responseText = result.text;
+        } else if (typeof result === 'string') {
+            responseText = result;
+        } else {
+            responseText = 'He recibido tu mensaje. ¿En qué más puedo ayudarte?';
+        }
+        
+        // Añadir la respuesta al chat
+        addMessage('assistant', responseText);
+
     } catch (error) {
         console.error('Error al enviar el mensaje:', error);
+        addMessage('assistant', 'Lo siento, hubo un error al procesar tu solicitud. Por favor, inténtalo de nuevo.');
+    } finally {
+        // Ocultar indicador de escritura en cualquier caso
         hideTypingIndicator();
-        addMessage('assistant', 'Lo siento, ha ocurrido un error al procesar tu mensaje. Por favor, inténtalo de nuevo.');
     }
 }
+
+
 
 // Inicializar reconocimiento de voz
 function initSpeechRecognition() {
@@ -1548,22 +1736,88 @@ function handleUserTypeSelect(type) {
 
 // Función para iniciar la entrevista
 function startInterview() {
+    console.log('Iniciando entrevista...');
+    
+    // Ocultar todas las pantallas
     hideAllScreens();
+    
+    // Mostrar pantalla de entrevista
     if (interviewScreen) {
         interviewScreen.classList.remove('hidden');
         
-        // Limpiar mensajes anteriores
-        if (interviewMessages) {
-            interviewMessages.innerHTML = '';
+        // Enfocar el primer campo
+        const firstInput = document.querySelector('#interview-form input, #interview-form select, #interview-form textarea');
+        if (firstInput) {
+            firstInput.focus();
         }
-        
-        // Mostrar mensaje de bienvenida
-        addInterviewMessage('assistant', '¡Hola! Soy tu tutor de SocratIA. Vamos a hacerte algunas preguntas para conocerte mejor y personalizar tu experiencia.');
-        
-        // Mostrar la primera pregunta después de un breve retraso
-        setTimeout(() => {
-            addInterviewMessage('assistant', interviewQuestions[0]);
-        }, 500);
+    }
+    
+    // Configurar el manejador del formulario de entrevista
+    const interviewForm = document.getElementById('interview-form');
+    if (interviewForm) {
+        interviewForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Obtener los datos del formulario
+            const formData = new FormData(interviewForm);
+            const interviewData = {};
+            
+            // Convertir FormData a objeto
+            for (let [key, value] of formData.entries()) {
+                interviewData[key] = value.trim();
+            }
+            
+            try {
+                // Mostrar indicador de carga
+                const submitButton = interviewForm.querySelector('button[type="submit"]');
+                const originalButtonText = submitButton.innerHTML;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+                
+                // Simular un retraso para la operación asíncrona
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Obtener el usuario actual
+                const currentUser = JSON.parse(localStorage.getItem('currentUser')) || {};
+                console.log('Usuario actual en localStorage (antes de actualizar):', currentUser);
+                
+                // Actualizar los datos del usuario con las respuestas de la entrevista
+                const updatedUser = {
+                    ...currentUser,
+                    ...interviewData,
+                    hasCompletedInterview: true,
+                    interviewCompletedAt: new Date().toISOString(),
+                    // Asegurarse de que el ID del usuario esté presente
+                    id: currentUser.id || Date.now().toString()
+                };
+                
+                // Guardar los datos actualizados
+                try {
+                    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                    console.log('Datos guardados en localStorage:', updatedUser);
+                    
+                    // Verificar que los datos se guardaron correctamente
+                    const storedUser = JSON.parse(localStorage.getItem('currentUser'));
+                    console.log('Datos leídos de localStorage (después de guardar):', storedUser);
+                    
+                    // Mostrar un mensaje de éxito
+                    alert('¡Tus respuestas se han guardado correctamente!');
+                    
+                    // Redirigir a la pantalla principal
+                    window.location.href = 'index.html';
+                } catch (error) {
+                    console.error('Error al guardar en localStorage:', error);
+                    alert('Hubo un error al guardar tus respuestas. Por favor, inténtalo de nuevo.');
+                    throw error; // Relanzar el error para que sea manejado por el catch externo
+                }
+                
+            } catch (error) {
+                console.error('Error al guardar la entrevista:', error);
+                alert('Ocurrió un error al guardar tus respuestas. Por favor, inténtalo de nuevo.');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            }
+        });
     }
 }
 
@@ -1672,34 +1926,33 @@ function hideAllScreens() {
 }
 
 // Inicializar la aplicación cuando el DOM esté listo
-function initializeApp() {
-    console.log('Inicializando aplicación...');
-    
-    // Inicializar elementos del DOM
-    const domInitialized = initializeDOMElements();
-    console.log('Elementos del DOM inicializados:', domInitialized);
-    
-    // Configurar event listeners generales
-    setupEventListeners();
-    
-    // Configurar event listeners para carga de archivos
-    console.log('Configurando listeners de carga de archivos...');
-    setupFileUploadListeners();
-    
-    // Verificar si los elementos de carga de archivos están disponibles
-    console.log('Elemento uploadButton:', uploadButton);
-    console.log('Elemento uploadModal:', uploadModal);
-    console.log('Elemento fileSelector:', fileSelector);
-    console.log('Elemento dropArea:', dropArea);
-    
-    // Iniciar flujo de la aplicación
-    startAppFlow();
+function startApplication() {
+    try {
+        console.log('Iniciando aplicación...');
+        init();
+    } catch (error) {
+        console.error('Error al iniciar la aplicación:', error);
+        // Mostrar un mensaje de error en la interfaz
+        const errorDiv = document.createElement('div');
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '0';
+        errorDiv.style.left = '0';
+        errorDiv.style.width = '100%';
+        errorDiv.style.padding = '20px';
+        errorDiv.style.backgroundColor = '#fee2e2';
+        errorDiv.style.color = '#b91c1c';
+        errorDiv.style.textAlign = 'center';
+        errorDiv.style.zIndex = '9999';
+        errorDiv.textContent = 'Error al cargar la aplicación. Por favor, recarga la página.';
+        document.body.prepend(errorDiv);
+    }
 }
 
-// Verificar si el DOM ya está cargado
+// Verificar el estado del documento
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
+    // El documento aún se está cargando, esperar al evento DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', startApplication);
 } else {
-    // DOM ya está listo
-    initializeApp();
+    // El documento ya está listo, ejecutar inmediatamente
+    startApplication();
 }
