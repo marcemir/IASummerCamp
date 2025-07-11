@@ -268,29 +268,21 @@ function stopVoiceRecognition() {
 // Actualizar interfaz de grabación
 function updateRecordingUI(recording) {
     console.log('Actualizando UI de grabación. Grabando:', recording);
-    
-    // Asegurarse de que los botones estén inicializados
-    if (!recordButton || !stopRecordButton) {
-        recordButton = document.getElementById('record-button');
-        stopRecordButton = document.getElementById('stop-record-button');
-    }
-    
-    if (recordButton && stopRecordButton) {
+    if (recordButton) {
         if (recording) {
-            // Ocultar botón de grabar y mostrar el de detener
-            recordButton.style.display = 'none';
-            stopRecordButton.style.display = 'flex';
-            stopRecordButton.classList.add('visible');
+            recordButton.classList.add('hidden');
         } else {
-            // Mostrar botón de grabar y ocultar el de detener
-            recordButton.style.display = 'flex';
-            stopRecordButton.style.display = 'none';
-            stopRecordButton.classList.remove('visible');
+            recordButton.classList.remove('hidden');
         }
-        console.log('Botón grabar - visible:', recordButton.style.display !== 'none');
-        console.log('Botón detener - visible:', stopRecordButton.style.display !== 'none');
-    } else {
-        console.error('No se pudieron encontrar los botones de grabación');
+        console.log('Botón grabar - clase hidden:', recordButton.classList.contains('hidden'));
+    }
+    if (stopRecordButton) {
+        if (recording) {
+            stopRecordButton.classList.remove('hidden');
+        } else {
+            stopRecordButton.classList.add('hidden');
+        }
+        console.log('Botón detener - clase hidden:', stopRecordButton.classList.contains('hidden'));
     }
 }
 
@@ -1627,6 +1619,87 @@ function sendMessage(userMessage = null) {
         console.error('Error al enviar el mensaje:', error);
         hideTypingIndicator();
         addMessage('assistant', 'Lo siento, hubo un error al procesar tu solicitud. Por favor, inténtalo de nuevo.');
+    }
+}
+        
+        // Datos a enviar
+        const messageData = {
+            user_id: userId,
+            message: userMessage
+        };
+        
+        console.log('Enviando mensaje como usuario:', userId);
+
+        // URL de la API
+        const apiUrl = 'https://grupodos.app.n8n.cloud/webhook/chat';
+        console.log('Enviando solicitud a:', apiUrl);
+
+        // Convertir a form-urlencoded
+        const body = new URLSearchParams();
+        Object.entries(messageData).forEach(([k, v]) => body.append(k, v));
+
+        // Enviar petición
+        console.log('Enviando petición al servidor...');
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body
+        });
+
+        console.log('Respuesta recibida, estado:', response.status);
+
+        // Verificar respuesta
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error en la respuesta del servidor:', errorText);
+            throw new Error(`Error HTTP: ${response.status} - ${errorText}`);
+        }
+
+        // Procesar respuesta
+        let result = {};
+        const responseData = await response.text();
+        console.log('Respuesta en texto plano:', responseData);
+        
+        try {
+            // Intentar parsear como JSON
+            result = JSON.parse(responseData);
+            console.log('Respuesta parseada como JSON:', result);
+        } catch (e) {
+            console.log('La respuesta no es JSON válido, se tratará como texto plano');
+            result = { response: responseData };
+        }
+
+        console.log('Respuesta del servidor procesada:', result);
+
+        // Mostrar respuesta al usuario
+        let responseText = '';
+        
+        // Intentar obtener el mensaje de diferentes posibles formatos de respuesta
+        if (result.output) {
+            responseText = result.output;
+        } else if (result.response) {
+            responseText = result.response;
+        } else if (result.message) {
+            responseText = result.message;
+        } else if (result.text) {
+            responseText = result.text;
+        } else if (typeof result === 'string') {
+            responseText = result;
+        } else {
+            responseText = 'He recibido tu mensaje. ¿En qué más puedo ayudarte?';
+        }
+        
+        // Añadir la respuesta al chat
+        addMessage('assistant', responseText);
+
+    } catch (error) {
+        console.error('Error al enviar el mensaje:', error);
+        addMessage('assistant', 'Lo siento, hubo un error al procesar tu solicitud. Por favor, inténtalo de nuevo.');
+    } finally {
+        // Ocultar indicador de escritura en cualquier caso
+        hideTypingIndicator();
     }
 }
 
