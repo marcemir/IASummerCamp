@@ -1,8 +1,10 @@
 :root {
   /* Colores base */
   --color-primary: #1a365d;
-  --color-secondary: #3182ce;
-  --color-accent: #ed64a6;
+  /*--color-secondary: #3182ce;*/
+  --color-secondary: #ed64a6;
+  --color-accent: #3182ce;
+  /*--color-accent: #ed64a6;*/
   --color-light: #f7fafc;
   --color-dark: #2d3748;
   --color-text: #2d3748;
@@ -186,11 +188,18 @@ body {
   align-items: center;
   padding: 1rem 1.5rem;
   background: linear-gradient(135deg, var(--color-primary), #2c5282);
-  color: white;
   box-shadow: var(--shadow-md);
   position: relative;
   z-index: 10;
   gap: 1rem;
+}
+
+/* Establecer color de texto por defecto para elementos del header */
+.app-header,
+.app-header .user-greeting,
+.app-header .theme-toggle,
+.app-header .menu-button {
+  color: white;
 }
 
 .header-left {
@@ -212,11 +221,15 @@ body {
   font-family: 'Poppins', sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
-  color: white;
+  color: var(--color-primary);
   display: flex;
   align-items: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  gap: 0.25rem;
 }
+
+
+
+/* Eliminar estilos que ya no se usan */
 
 .logo-highlight {
   color: #fff;
@@ -411,34 +424,35 @@ body {
   transition: var(--transition);
 }
 
-.voice-button {
+/* Botón de grabar voz */
+#record-button, #stop-record-button {
   right: 0.75rem;
-  background-color: var(--color-secondary);
+  background-color: #8B5CF6; /* Color violeta para el botón de voz */
   color: white;
+  box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.2), 0 2px 4px -1px rgba(139, 92, 246, 0.1);
+  transition: all 0.3s ease;
 }
 
-.send-button:hover, .voice-button:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+.send-button:hover, #record-button:hover, #stop-record-button:hover {
+  background-color: #7C3AED; /* Violeta un poco más oscuro al pasar el ratón */
+  transform: translateY(-50%) scale(1.05);
 }
 
-.voice-button:hover {
-  background-color: #2c5282;
-}
-
-.voice-button.recording {
-  background-color: #e53e3e;
+#record-button.recording {
+  background-color: #8B5CF6; /* Mantener el mismo color violeta */
   animation: pulse 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
 }
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(229, 62, 62, 0);
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(229, 62, 62, 0);
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
   }
 }
 
@@ -1344,6 +1358,65 @@ body {
 
 /* Ajustes para pantallas pequeñas */
 @media (max-width: 480px) {
+  /* Ajustes generales */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  .app-container {
+    height: 100vh;
+    max-height: -webkit-fill-available; /* Para navegadores basados en WebKit */
+    max-height: 100dvh; /* Nueva unidad de viewport dinámica */
+  }
+  
+  /* Header */
+  .app-header {
+    padding: 0.75rem 1rem;
+    min-height: 60px;
+  }
+  
+  .logo {
+    font-size: 1.25rem;
+  }
+  
+  .user-greeting {
+    font-size: 0.9rem;
+    margin-left: 0.5rem;
+  }
+  
+  /* Contenedor de chat */
+  .chat-container {
+    height: calc(100vh - 120px); /* Resta el alto del header y el input */
+    max-height: -webkit-fill-available;
+  }
+  
+  /* Área de mensajes */
+  .messages {
+    padding: 0.75rem;
+  }
+  
+  /* Área de entrada */
+  .input-container {
+    padding: 0.5rem;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+  }
+  
+  .message-input {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+  
+  .send-button, .voice-button {
+    width: 40px;
+    height: 40px;
+  }
+  
   .auth-container {
     padding: 1.5rem;
   }
@@ -1820,6 +1893,43 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   ESTILOS ESPECÍFICOS PARA EL LOGO EN EL HEADER
+   Se colocan al final para asegurar prioridad
+   ============================================ */
+
+/* Reset de estilos heredados */
+.app-header .logo .header-logo,
+.app-header .logo .header-logo *,
+.app-header .logo .header-logo *::before,
+.app-header .logo .header-logo *::after {
+  all: unset;
+}
+
+/* Estilos específicos para el logo */
+.app-header .logo .header-logo {
+  font-family: 'Poppins', sans-serif !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: #31d6e9 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  letter-spacing: 0.5px !important;
+  text-shadow: 0 0 15px rgba(49, 214, 233, 0.5) !important;
+  line-height: 1.2 !important;
+  display: inline !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.app-header .logo .header-logo strong {
+  color: #C73EA5 !important;
+  font-weight: 800 !important;
+  text-shadow: 0 0 15px rgba(199, 62, 165, 0.5) !important;
+  background: none !important;
 }
 
 /* Estilos para el contenedor de audio grabado */
