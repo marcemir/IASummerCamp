@@ -59,8 +59,19 @@ function initializeDOMElements() {
     messageInput = getElement('message-input');
     interviewAnswer = getElement('interview-answer');
     sendButton = getElement('send-button');
-    recordButton = getElement('record-button');
+    recordButton = getElement('record-button');    // Botones de grabación
     stopRecordButton = getElement('stop-record-button');
+    
+    // Configurar botones de grabación
+    if (recordButton) {
+        recordButton.title = 'Grabar mensaje de voz';
+        recordButton.addEventListener('click', startVoiceRecognition);
+    }
+    if (stopRecordButton) {
+        stopRecordButton.title = 'Detener grabación';
+        stopRecordButton.addEventListener('click', stopVoiceRecognition);
+        stopRecordButton.classList.add('hidden'); // Ocultar inicialmente con clase CSS
+    }
     themeToggle = getElement('theme-toggle');
     userEmail = getElement('user-email');
     logoutButton = getElement('logout-button');
@@ -98,8 +109,6 @@ function initializeDOMElements() {
 }
 
 // Estado de la aplicación
-let isListening = false;
-let recognition = null;
 let isDarkMode = localStorage.getItem('darkMode') === 'true';
 
 // Estado de la entrevista
@@ -111,12 +120,102 @@ const interviewQuestions = [
     "¿Tienes algún conocimiento previo sobre este tema?",
     "¿Cuánto tiempo puedes dedicar al aprendizaje semanalmente?"
 ];
-let interviewAnswers = [];
 
-// Variables para grabación de audio
-let mediaRecorder = null;
-let audioChunks = [];
-let isRecording = false;
+// Variables para grabación de voz
+let recognition = null;
+let isListening = false;
+
+// Iniciar reconocimiento de voz
+function startVoiceRecognition() {
+    console.log('Iniciando reconocimiento de voz...');
+    if (isListening) {
+        console.log('El reconocimiento de voz ya está activo');
+        return;
+    }
+    
+    try {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'es-ES';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        
+        recognition.onstart = () => {
+            console.log('Reconocimiento de voz iniciado');
+            isListening = true;
+            updateRecordingUI(true);
+        };
+        
+        recognition.onresult = async (event) => {
+            console.log('Resultado de reconocimiento de voz recibido');
+            if (event.results && event.results[0] && event.results[0][0]) {
+                const transcript = event.results[0][0].transcript;
+                console.log('Transcripción:', transcript);
+                if (transcript.trim()) {
+                    await handleRecordedAudio(transcript);
+                }
+            }
+        };
+        
+        recognition.onerror = (event) => {
+            console.error('Error en reconocimiento de voz:', event.error);
+            isListening = false;
+            updateRecordingUI(false);
+            // Mostrar mensaje de error al usuario
+            addMessage('assistant', 'Error al acceder al micrófono. Por favor, asegúrate de que la aplicación tenga los permisos necesarios.');
+        };
+        
+        recognition.onend = () => {
+            console.log('Reconocimiento de voz finalizado. Estado isListening:', isListening);
+            if (isListening) { // Solo actualizar si no fue detenido manualmente
+                isListening = false;
+                updateRecordingUI(false);
+            }
+        };
+        
+        console.log('Iniciando reconocimiento...');
+        recognition.start();
+    } catch (error) {
+        console.error('Error al iniciar el reconocimiento de voz:', error);
+        isListening = false;
+        updateRecordingUI(false);
+        // Mostrar mensaje de error al usuario
+        addMessage('assistant', 'No se pudo iniciar el reconocimiento de voz. Por favor, inténtalo de nuevo.');
+    }
+}
+
+// Detener reconocimiento de voz
+function stopVoiceRecognition() {
+    if (recognition && isListening) {
+        isListening = false; // Marcar como detenido antes de detener para evitar conflictos
+        try {
+            recognition.stop();
+        } catch (e) {
+            console.error('Error al detener el reconocimiento:', e);
+        }
+        updateRecordingUI(false);
+    }
+}
+
+// Actualizar interfaz de grabación
+function updateRecordingUI(recording) {
+    console.log('Actualizando UI de grabación. Grabando:', recording);
+    if (recordButton) {
+        if (recording) {
+            recordButton.classList.add('hidden');
+        } else {
+            recordButton.classList.remove('hidden');
+        }
+        console.log('Botón grabar - clase hidden:', recordButton.classList.contains('hidden'));
+    }
+    if (stopRecordButton) {
+        if (recording) {
+            stopRecordButton.classList.remove('hidden');
+        } else {
+            stopRecordButton.classList.add('hidden');
+        }
+        console.log('Botón detener - clase hidden:', stopRecordButton.classList.contains('hidden'));
+    }
+}
 
 // Inicializar el usuario y token desde el almacenamiento al cargar la página
 let currentUser = (() => {
@@ -776,17 +875,27 @@ function hideAuthScreen() {
 
 function showApp() {
     console.log('Mostrando aplicación...');
+    
+    // Ocultar todas las pantallas primero
+    hideAllScreens();
+    
+    // Mostrar el contenedor principal de la aplicación
     if (appContainer) {
         // Asegurarse de que no esté oculto por CSS
         appContainer.classList.remove('hidden');
         appContainer.style.display = 'flex';
+        
         // Forzar un reflow para que la transición funcione
         void appContainer.offsetHeight;
+        
+        // Aplicar la opacidad después de un pequeño retraso
         setTimeout(() => {
             appContainer.style.opacity = '1';
         }, 10);
+        
+        console.log('Aplicación mostrada correctamente');
     } else {
-        console.error('No se pudo mostrar la aplicación: elemento no encontrado');
+        console.error('No se pudo mostrar la aplicación: elemento app-container no encontrado');
     }
 }
 
@@ -922,7 +1031,7 @@ function setupEventListeners() {
     }
     
     // Mostrar/ocultar contraseña
-    if (togglePassword) {
+    if (togglePassword && passwordInput) {
         togglePassword.addEventListener('click', () => {
             const type = passwordInput.type === 'password' ? 'text' : 'password';
             passwordInput.type = type;
@@ -932,100 +1041,144 @@ function setupEventListeners() {
         });
     }
     
-    // Menú desplegable
-    if (menuButton && dropdownMenu) {
-        // Mostrar/ocultar menú al hacer clic
-        menuButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
-            menuButton.setAttribute('aria-expanded', !isExpanded);
-            dropdownMenu.setAttribute('aria-hidden', isExpanded);
+    // Función para abrir/cerrar el menú
+    function toggleMenu() {
+        if (!menuButton || !dropdownMenu || !dropdownOverlay) return;
+        
+        const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
+        const newState = !isExpanded;
+        
+        // Actualizar estados de accesibilidad
+        menuButton.setAttribute('aria-expanded', String(newState));
+        dropdownMenu.setAttribute('aria-hidden', String(!newState));
+        dropdownOverlay.setAttribute('aria-hidden', String(!newState));
+        
+        // Ocultar el botón del menú cuando se abre
+        if (newState) {
+            menuButton.style.opacity = '0';
+            menuButton.style.visibility = 'hidden';
             
-            // Agregar clase para el fondo oscuro en móvil
-            if (window.innerWidth <= 768) {
-                if (!isExpanded) {
-                    document.body.style.overflow = 'hidden';
-                    document.body.classList.add('menu-open');
-                } else {
-                    document.body.style.overflow = '';
-                    document.body.classList.remove('menu-open');
-                }
-            }
-        });
-        
-        // Cerrar menú al hacer clic fuera o en el fondo oscuro
-        document.addEventListener('click', (e) => {
-            const isMenuOpen = menuButton.getAttribute('aria-expanded') === 'true';
-            const isClickInsideMenu = dropdownMenu.contains(e.target) || menuButton.contains(e.target);
-            
-            if (isMenuOpen && !isClickInsideMenu) {
-                closeMenu();
-            }
-        });
-        
-        // Cerrar menú al hacer scroll en móvil
-        let lastScrollTop = 0;
-        window.addEventListener('scroll', () => {
-            if (window.innerWidth <= 768) {
-                const st = window.pageYOffset || document.documentElement.scrollTop;
-                if (Math.abs(st - lastScrollTop) > 10) {
-                    closeMenu();
-                }
-                lastScrollTop = st <= 0 ? 0 : st;
-            }
-        });
-        
-        // Función para cerrar el menú
-        function closeMenu() {
-            menuButton.setAttribute('aria-expanded', 'false');
-            dropdownMenu.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = '';
-            document.body.classList.remove('menu-open');
+            // Enfocar el primer elemento del menú al abrirlo
+            const firstMenuItem = dropdownMenu.querySelector('.dropdown-item, .close-menu');
+            if (firstMenuItem) firstMenuItem.focus();
+        } else {
+            // Restaurar el botón del menú al cerrar
+            menuButton.style.opacity = '1';
+            menuButton.style.visibility = 'visible';
+            menuButton.focus();
         }
     }
     
-    // Eventos de los elementos del menú
-    if (uploadMaterialBtn) {
-        uploadMaterialBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            console.log('Subir material');
-            showUploadModal();
-            menuButton.setAttribute('aria-expanded', 'false');
-            dropdownMenu.setAttribute('aria-hidden', 'true');
+    // Función para cerrar el menú
+    function closeMenu() {
+        if (!menuButton || !dropdownMenu || !dropdownOverlay) return;
+        
+        menuButton.setAttribute('aria-expanded', 'false');
+        dropdownMenu.setAttribute('aria-hidden', 'true');
+        dropdownOverlay.setAttribute('aria-hidden', 'true');
+        
+        // Restaurar el botón del menú
+        menuButton.style.opacity = '1';
+        menuButton.style.visibility = 'visible';
+        menuButton.focus();
+    }
+    
+    // Inicializar elementos del menú
+    const dropdownOverlay = document.getElementById('dropdown-overlay');
+    const closeMenuButton = document.querySelector('.close-menu');
+    
+    // Manejar clic en el botón del menú
+    if (menuButton) {
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMenu();
         });
     }
     
-    if (uploadPhotoBtn) {
-        uploadPhotoBtn.addEventListener('click', (e) => {
+    // Manejar clic en el botón de cerrar menú
+    if (closeMenuButton) {
+        closeMenuButton.addEventListener('click', (e) => {
             e.preventDefault();
-            console.log('Subir foto');
-            // Aquí puedes implementar la lógica para subir una foto
-            alert('Función de subir foto en desarrollo');
-            menuButton.setAttribute('aria-expanded', 'false');
-            dropdownMenu.setAttribute('aria-hidden', 'true');
+            closeMenu();
         });
     }
     
-    if (myDataBtn) {
-        myDataBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            console.log('Ver mis datos');
-            // Aquí puedes implementar la lógica para mostrar los datos del usuario
-            alert('Función de mis datos en desarrollo');
-            menuButton.setAttribute('aria-expanded', 'false');
-            dropdownMenu.setAttribute('aria-hidden', 'true');
-        });
+    // Cerrar al hacer clic en el overlay
+    if (dropdownOverlay) {
+        dropdownOverlay.addEventListener('click', closeMenu);
     }
     
-    // Cerrar sesión
-    if (logoutButton) {
-        logoutButton.addEventListener('click', (e) => {
+    // Cerrar con la tecla Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && menuButton && menuButton.getAttribute('aria-expanded') === 'true') {
             e.preventDefault();
-            handleLogout();
-            menuButton.setAttribute('aria-expanded', 'false');
-            dropdownMenu.setAttribute('aria-hidden', 'true');
-        });
+            closeMenu();
+        }
+    });
+    
+    // Manejar clics en los elementos del menú
+    document.addEventListener('click', (e) => {
+        const menuItem = e.target.closest('.dropdown-item');
+        if (menuItem) {
+            e.preventDefault();
+            const action = menuItem.getAttribute('data-action');
+            console.log('Menú seleccionado:', action);
+            
+            // Cerrar el menú después de la selección
+            closeMenu();
+            
+            // Aquí puedes agregar la lógica para cada acción del menú
+            switch(action) {
+                case 'upload-material':
+                    showUploadModal();
+                    break;
+                case 'upload-photo':
+                    alert('Función de subir foto en desarrollo');
+                    break;
+                case 'my-data':
+                    alert('Función de mis datos en desarrollo');
+                    break;
+                case 'logout':
+                    handleLogout();
+                    break;
+            }
+        }
+    });
+    
+    // Función para mostrar el modal de carga (placeholder)
+    function showUploadModal() {
+        alert('Función de subir material en desarrollo');
     }
+    
+    // Manejadores de eventos para los elementos del menú usando delegación
+    document.addEventListener('click', (e) => {
+        const menuItem = e.target.closest('[data-action]');
+        if (!menuItem) return;
+        
+        e.preventDefault();
+        const action = menuItem.getAttribute('data-action');
+        
+        switch(action) {
+            case 'upload-material':
+                console.log('Subir material');
+                showUploadModal();
+                break;
+            case 'upload-photo':
+                console.log('Subir foto');
+                alert('Función de subir foto en desarrollo');
+                break;
+            case 'my-data':
+                console.log('Ver mis datos');
+                alert('Función de mis datos en desarrollo');
+                break;
+            case 'logout':
+                console.log('Cerrar sesión');
+                handleLogout();
+                break;
+        }
+        
+        closeMenu();
+    });
     
     // Enviar mensaje al hacer submit
     if (messageForm) {
@@ -1041,13 +1194,7 @@ function setupEventListeners() {
     }
     
     // Controlar los botones de grabación de audio
-    if (recordButton) {
-        recordButton.addEventListener('click', toggleVoiceRecognition);
-    }
-    
-    if (stopRecordButton) {
-        stopRecordButton.addEventListener('click', toggleVoiceRecognition);
-    }
+    // Los event listeners ya están configurados en initializeDOMElements
     
     // Alternar tema
     if (themeToggle) {
@@ -1066,26 +1213,54 @@ function setupEventListeners() {
 }
 
 // Añadir un mensaje al chat
-function addMessage(role, content, timestamp = new Date()) {
+function addMessage(role, content, timestamp = null, messageId = null) {
+    // Asegurarse de que el contenedor de mensajes exista
+    if (!messagesContainer) {
+        console.error('El contenedor de mensajes no está disponible');
+        return null;
+    }
+
+    // Crear elemento de mensaje
     const messageElement = document.createElement('div');
     messageElement.className = `message message-${role}`;
     
-    const timeString = timestamp.toLocaleTimeString('es-ES', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
+    // Si se proporciona un ID, asignarlo al mensaje
+    if (messageId) {
+        messageElement.id = messageId;
+    }
+    
+    // Asegurarse de que tengamos una fecha válida
+    const messageDate = timestamp ? new Date(timestamp) : new Date();
+    
+    // Formatear la hora
+    let timeString = '';
+    try {
+        timeString = messageDate.toLocaleTimeString('es-ES', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+    } catch (e) {
+        console.error('Error al formatear la hora:', e);
+        timeString = new Date().toLocaleTimeString('es-ES', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+    }
     
     // Crear contenedor de contenido de forma segura
     const contentContainer = document.createElement('div');
     contentContainer.className = 'message-content';
     
     // Si el contenido es HTML, usamos innerHTML, de lo contrario textContent
-    if (content.includes('<') && content.includes('>')) {
+    if (content && typeof content === 'string' && content.includes('<') && content.includes('>')) {
         // Si parece contener HTML, lo añadimos directamente
         contentContainer.innerHTML = content;
-    } else {
+    } else if (content !== null && content !== undefined) {
         // Si es texto plano, usamos textContent para seguridad
         contentContainer.textContent = content;
+    } else {
+        // Si el contenido es nulo o indefinido, establecer un valor predeterminado
+        contentContainer.textContent = '';
     }
     
     // Crear elemento de tiempo
@@ -1099,10 +1274,16 @@ function addMessage(role, content, timestamp = new Date()) {
     
     // Añadir mensaje al contenedor
     messagesContainer.appendChild(messageElement);
+    
+    // Desplazarse al final de los mensajes
     scrollToBottom();
     
     // Guardar mensaje en el almacenamiento local
-    saveMessage(role, content, timestamp);
+    if (content !== null && content !== undefined) {
+        saveMessage(role, content, messageDate);
+    }
+    
+    return messageElement;
 }
 
 // Mostrar indicador de escritura
@@ -1129,13 +1310,16 @@ function hideTypingIndicator() {
 }
 
 // Función para enviar mensajes
-async function sendMessage() {
-    const userMessage = messageInput.value.trim();
-    if (!userMessage) return;
-
-    // Mostrar mensaje del usuario
-    addMessage('user', userMessage);
-    messageInput.value = '';
+async function sendMessage(userMessage = null) {
+    // Si no se proporciona un mensaje, obtenerlo del campo de entrada
+    if (userMessage === null) {
+        userMessage = messageInput.value.trim();
+        if (!userMessage) return;
+        
+        // Mostrar mensaje del usuario y limpiar el campo de entrada
+        addMessage('user', userMessage);
+        messageInput.value = '';
+    }
 
     // Mostrar indicador de escritura
     showTypingIndicator();
@@ -1220,125 +1404,42 @@ async function sendMessage() {
     }
 }
 
-
-
-// Inicializar reconocimiento de voz
-function initSpeechRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-        console.warn('El reconocimiento de voz no es compatible con este navegador');
-        voiceButton.disabled = true;
-        return;
-    }
-    
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'es-ES';
-    
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        messageInput.value = transcript;
-        sendMessage();
-    };
-    
-    recognition.onerror = (event) => {
-        console.error('Error en el reconocimiento de voz:', event.error);
-        stopVoiceRecognition();
-    };
-    
-    recognition.onend = () => {
-        if (isListening) {
-            recognition.start();
-        }
-    };
-}
-
-// Iniciar la grabación de audio
-async function startAudioRecording() {
+// Función para manejar la grabación de audio
+async function handleRecordedAudio(transcript) {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
+        console.log('Mensaje de voz transcrito:', transcript);
+        if (!transcript || transcript.trim() === '') {
+            console.log('Transcripción vacía, ignorando...');
+            return;
+        }
         
-        mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                audioChunks.push(event.data);
+        const messageId = 'user-msg-' + Date.now();
+        addMessage('user', transcript, null, messageId);
+        
+        console.log('Enviando mensaje de voz al servidor...');
+        // Usar un pequeño retraso para asegurar que la interfaz se actualice
+        setTimeout(async () => {
+            try {
+                await sendMessage(transcript);
+                console.log('Mensaje de voz enviado correctamente');
+            } catch (error) {
+                console.error('Error al enviar mensaje de voz:', error);
+                addMessage('assistant', 'Hubo un error al enviar tu mensaje de voz. Por favor, inténtalo de nuevo.');
             }
-        };
-        
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            await sendAudioMessage(audioBlob);
-            
-            // Detener todas las pistas del stream
-            stream.getTracks().forEach(track => track.stop());
-        };
-        
-        mediaRecorder.start();
-        isRecording = true;
-        
-        // Actualizar la UI
-        document.getElementById('record-button').classList.add('hidden');
-        document.getElementById('stop-record-button').classList.remove('hidden');
+        }, 100);
         
     } catch (error) {
-        console.error('Error al acceder al micrófono:', error);
-        addMessage('assistant', 'No se pudo acceder al micrófono. Por favor, asegúrate de haber otorgado los permisos necesarios.');
+        console.error('Error al procesar el audio:', error);
+        addMessage('assistant', 'No se pudo procesar tu mensaje de voz. Por favor, inténtalo de nuevo.');
+    } finally {
+        // Asegurarse de que la interfaz se actualice incluso si hay un error
+        updateRecordingUI(false);
     }
 }
 
-// Detener la grabación de audio
-function stopAudioRecording() {
-    if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        
-        // Actualizar la UI
-        document.getElementById('record-button').classList.remove('hidden');
-        document.getElementById('stop-record-button').classList.add('hidden');
-    }
-}
-
-// Enviar mensaje de audio al servidor
-async function sendAudioMessage(audioBlob) {
-    try {
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'audio-mensaje.wav');
-        formData.append('username', currentUser ? currentUser.name : 'usuario_anonimo');
-        
-        const response = await fetch('https://grupodos.app.n8n.cloud/webhook-test/chat', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        
-        // Mostrar la respuesta del servidor en el chat
-        if (result.response) {
-            addMessage('assistant', result.response);
-        } else if (result.message) {
-            addMessage('assistant', result.message);
-        }
-        
-    } catch (error) {
-        console.error('Error al enviar el audio:', error);
-        addMessage('assistant', 'Lo siento, hubo un error al procesar tu mensaje de audio.');
-    }
-}
-
-// Alternar grabación de audio
+// Alternar reconocimiento de voz
 function toggleVoiceRecognition() {
-    if (isRecording) {
-        stopAudioRecording();
-    } else {
-        startAudioRecording();
-    }
+    isListening ? stopVoiceRecognition() : startVoiceRecognition();
 }
 
 // Alternar entre temas claro y oscuro

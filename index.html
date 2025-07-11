@@ -253,30 +253,26 @@
             </div>
             <div class="user-menu">
                 <div class="menu-container">
-                    <button id="menu-button" class="menu-button" aria-label="Menú de usuario" aria-expanded="false">
+                    <button id="menu-button" class="menu-button" aria-label="Menú de usuario" aria-expanded="false" aria-controls="dropdown-menu" aria-haspopup="true">
                         <span class="menu-icon"><i class="fas fa-bars"></i></span>
                         <span class="menu-text">Menú</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
-                    <div id="dropdown-menu" class="dropdown-menu" aria-hidden="true">
-                        <div class="user-info">
-                            <i class="fas fa-user-circle"></i>
-                            <span>marcelo@ejemplo.com</span>
-                        </div>
-                        <div class="dropdown-divider"></div>
-                        <button class="dropdown-item" id="upload-material">
+                    <div id="dropdown-overlay" class="dropdown-overlay" aria-hidden="true"></div>
+                    <div id="dropdown-menu" class="dropdown-menu" aria-hidden="true" role="menu" aria-labelledby="menu-button">
+                        <a href="#" class="dropdown-item" data-action="upload-material" role="menuitem">
                             <i class="fas fa-upload"></i> Subir material
-                        </button>
-                        <button class="dropdown-item" id="upload-photo">
+                        </a>
+                        <a href="#" class="dropdown-item" data-action="upload-photo" role="menuitem">
                             <i class="fas fa-camera"></i> Subir foto
-                        </button>
-                        <button class="dropdown-item" id="my-data">
+                        </a>
+                        <a href="#" class="dropdown-item" data-action="my-data" role="menuitem">
                             <i class="fas fa-user"></i> Mis datos
-                        </button>
+                        </a>
                         <div class="dropdown-divider"></div>
-                        <button id="logout-button" class="dropdown-item">
+                        <a href="#" class="dropdown-item text-danger" data-action="logout" role="menuitem">
                             <i class="fas fa-sign-out-alt"></i> Cerrar sesión
-                        </button>
+                        </a>
                     </div>
                 </div>
                 <button id="theme-toggle" class="theme-toggle" aria-label="Cambiar tema">
