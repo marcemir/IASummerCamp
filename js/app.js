@@ -35,31 +35,80 @@ function initializeDOMElements() {
     authScreen = getElement('auth-screen');
     appContainer = getElement('app-container');
     
-    // Botones de selección de tipo de usuario
-    studentBtn = getElement('student-btn');
-    teacherBtn = getElement('teacher-btn');
-    
-    // Elementos de autenticación
-    loginForm = getElement('login-form');
-    emailInput = getElement('email');
-    passwordInput = getElement('password');
-    togglePassword = getElement('toggle-password');
-    rememberMe = getElement('remember-me');
-    showRegister = getElement('show-register');
     
     // Pantallas adicionales
     registerScreen = getElement('register-screen');
     interviewScreen = getElement('interview-screen');
     
     // Elementos del chat
-    messagesContainer = getElement('messages');
+    messagesContainer = document.getElementById('messages');
+    if (!messagesContainer) {
+        console.error('No se pudo encontrar el contenedor de mensajes');
+        // Intentar crear el contenedor si no existe
+        const chatContainer = document.querySelector('.chat-container');
+        if (chatContainer) {
+            messagesContainer = document.createElement('div');
+            messagesContainer.id = 'messages';
+            messagesContainer.className = 'messages';
+            chatContainer.insertBefore(messagesContainer, document.querySelector('.input-container'));
+            console.log('Contenedor de mensajes creado manualmente');
+        }
+    }
+    
     interviewMessages = getElement('interview-messages');
-    messageForm = getElement('message-form');
+    messageForm = document.getElementById('message-form');
+    
+    // Asegurarse de que el formulario de mensajes exista
+    if (!messageForm) {
+        console.error('No se pudo encontrar el formulario de mensajes');
+        const inputContainer = document.querySelector('.input-container');
+        if (inputContainer) {
+            messageForm = document.createElement('form');
+            messageForm.id = 'message-form';
+            messageForm.className = 'message-form';
+            messageForm.innerHTML = `
+                <input type="text" id="message-input" class="message-input" placeholder="Escribe tu mensaje..." autocomplete="off" required>
+                <button type="submit" id="send-button" class="send-button" title="Enviar mensaje">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            `;
+            inputContainer.appendChild(messageForm);
+            console.log('Formulario de mensajes creado manualmente');
+        }
+    }
+    
     interviewForm = getElement('interview-form');
-    messageInput = getElement('message-input');
+    messageInput = document.getElementById('message-input');
+    
+    // Asegurarse de que el campo de entrada de mensaje exista
+    if (!messageInput && messageForm) {
+        messageInput = document.createElement('input');
+        messageInput.type = 'text';
+        messageInput.id = 'message-input';
+        messageInput.className = 'message-input';
+        messageInput.placeholder = 'Escribe tu mensaje...';
+        messageInput.autocomplete = 'off';
+        messageInput.required = true;
+        messageForm.insertBefore(messageInput, messageForm.firstChild);
+        console.log('Campo de entrada de mensaje creado manualmente');
+    }
+    
     interviewAnswer = getElement('interview-answer');
-    sendButton = getElement('send-button');
-    recordButton = getElement('record-button');    // Botones de grabación
+    sendButton = document.getElementById('send-button');
+    
+    // Asegurarse de que el botón de envío exista
+    if (!sendButton && messageForm) {
+        sendButton = document.createElement('button');
+        sendButton.type = 'submit';
+        sendButton.id = 'send-button';
+        sendButton.className = 'send-button';
+        sendButton.title = 'Enviar mensaje';
+        sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        messageForm.appendChild(sendButton);
+        console.log('Botón de envío creado manualmente');
+    }
+    
+    recordButton = getElement('record-button');
     stopRecordButton = getElement('stop-record-button');
     
     // Configurar botones de grabación
@@ -70,8 +119,28 @@ function initializeDOMElements() {
     if (stopRecordButton) {
         stopRecordButton.title = 'Detener grabación';
         stopRecordButton.addEventListener('click', stopVoiceRecognition);
-        stopRecordButton.classList.add('hidden'); // Ocultar inicialmente con clase CSS
+        stopRecordButton.style.display = 'none';  // Ocultar inicialmente
     }
+    
+    console.log('Elementos del DOM inicializados correctamente', {
+        messagesContainer: !!messagesContainer,
+        messageForm: !!messageForm,
+        messageInput: !!messageInput,
+        sendButton: !!sendButton
+    });
+    
+    // Elementos de autenticación
+    loginForm = getElement('login-form');
+    emailInput = getElement('email');
+    passwordInput = getElement('password');
+    togglePassword = getElement('toggle-password');
+    rememberMe = getElement('remember-me');
+    showRegister = getElement('show-register');
+    
+    // Botones de selección de tipo de usuario
+    studentBtn = getElement('student-btn');
+    teacherBtn = getElement('teacher-btn');
+    
     themeToggle = getElement('theme-toggle');
     userEmail = getElement('user-email');
     logoutButton = getElement('logout-button');
@@ -383,7 +452,7 @@ async function startAppFlow() {
                 <div style="padding: 20px; font-family: Arial, sans-serif; text-align: center;">
                     <h2>¡Ups! Algo salió mal</h2>
                     <p>No se pudo cargar la aplicación correctamente.</p>
-                    <p>Por favor, recarga la página o inténtalo de nuevo más tarde.</p>
+                    <p>Por favor, recarga la página o inténtalo de nuevo.</p>
                     <button onclick="window.location.reload()" style="padding: 10px 20px; margin-top: 20px; cursor: pointer;">
                         Recargar Página
                     </button>
@@ -610,7 +679,6 @@ function handleLogin(email, password, remember) {
                     // Actualizar el estado global
                     currentUser = userData;
                     authToken = storage.getItem('authToken');
-                    
                     console.log('Usuario autenticado:', currentUser);
                     
                     // Actualizar la interfaz de usuario
@@ -642,15 +710,15 @@ function handleLogin(email, password, remember) {
                     }, 350);
                     
                     return true;
-                } catch (storageError) {
-                    console.error('Error al guardar la sesión:', storageError);
-                    alert('No se pudo guardar la sesión. Por favor, inténtalo de nuevo.');
+                } catch (error) {
+                    console.error('Error durante el proceso de autenticación:', error);
+                    // Mostrar mensaje de error al usuario
+                    alert('Error al iniciar sesión. Por favor, inténtalo de nuevo.');
                     return false;
                 }
             } catch (error) {
-                console.error('Error durante el proceso de autenticación:', error);
-                // Mostrar mensaje de error al usuario
-                alert('Error al iniciar sesión. Por favor, inténtalo de nuevo.');
+                console.error('Error en handleLogin:', error);
+                alert('Se produjo un error al intentar iniciar sesión. Por favor, recarga la página e inténtalo de nuevo.');
                 return false;
             }
         }, 500); // Simular tiempo de autenticación
@@ -912,6 +980,28 @@ function hideApp() {
 
 // Configurar los event listeners
 function setupEventListeners() {
+    // Configurar el envío del formulario de mensajes
+    if (messageForm) {
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (messageInput && messageInput.value.trim() !== '') {
+                sendMessage();
+            }
+        });
+    }
+
+    // Configurar el evento de tecla Enter en el input
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (this.value.trim() !== '') {
+                    sendMessage();
+                }
+            }
+        });
+    }
     // Mostrar formulario de registro
     const showRegisterLink = document.getElementById('show-register');
     const showLoginLink = document.getElementById('show-login');
@@ -1214,10 +1304,16 @@ function setupEventListeners() {
 
 // Añadir un mensaje al chat
 function addMessage(role, content, timestamp = null, messageId = null) {
+    console.log(`Añadiendo mensaje - Rol: ${role}, Contenido:`, content);
+    
     // Asegurarse de que el contenedor de mensajes exista
     if (!messagesContainer) {
-        console.error('El contenedor de mensajes no está disponible');
-        return null;
+        console.error('El contenedor de mensajes no está disponible, intentando recuperarlo...');
+        messagesContainer = document.getElementById('messages');
+        if (!messagesContainer) {
+            console.error('No se pudo encontrar el contenedor de mensajes');
+            return null;
+        }
     }
 
     // Crear elemento de mensaje
@@ -1272,11 +1368,25 @@ function addMessage(role, content, timestamp = null, messageId = null) {
     messageElement.appendChild(contentContainer);
     messageElement.appendChild(timeElement);
     
+    // Asegurarse de que el mensaje sea visible
+    messageElement.style.opacity = '0';
+    messageElement.style.transition = 'opacity 0.3s ease';
+    
     // Añadir mensaje al contenedor
     messagesContainer.appendChild(messageElement);
     
+    // Forzar un reflow para asegurar que la animación funcione
+    void messageElement.offsetHeight;
+    
+    // Hacer visible el mensaje con animación
+    messageElement.style.opacity = '1';
+    
+    console.log('Mensaje añadido al DOM:', { role, content });
+    
     // Desplazarse al final de los mensajes
-    scrollToBottom();
+    setTimeout(() => {
+        scrollToBottom();
+    }, 50);
     
     // Guardar mensaje en el almacenamiento local
     if (content !== null && content !== undefined) {
@@ -1311,20 +1421,46 @@ function hideTypingIndicator() {
 
 // Función para enviar mensajes
 async function sendMessage(userMessage = null) {
-    // Si no se proporciona un mensaje, obtenerlo del campo de entrada
-    if (userMessage === null) {
-        userMessage = messageInput.value.trim();
-        if (!userMessage) return;
-        
-        // Mostrar mensaje del usuario y limpiar el campo de entrada
-        addMessage('user', userMessage);
-        messageInput.value = '';
-    }
-
-    // Mostrar indicador de escritura
-    showTypingIndicator();
-
+    console.log('Iniciando función sendMessage');
+    
     try {
+        // Si no se proporciona un mensaje, obtenerlo del campo de entrada
+        if (userMessage === null) {
+            if (!messageInput) {
+                console.error('messageInput no está definido');
+                messageInput = document.getElementById('message-input');
+                if (!messageInput) {
+                    console.error('No se pudo encontrar el campo de entrada de mensaje');
+                    return;
+                }
+            }
+            
+            userMessage = messageInput.value.trim();
+            console.log('Mensaje a enviar:', userMessage);
+            
+            if (!userMessage) {
+                console.log('El mensaje está vacío, no se envía');
+                return;
+            }
+            
+            // Mostrar mensaje del usuario y limpiar el campo de entrada
+            addMessage('user', userMessage);
+            messageInput.value = '';
+            
+            // Desplazarse al final después de agregar el mensaje
+            setTimeout(() => {
+                scrollToBottom();
+            }, 100);
+        }
+
+        // Mostrar indicador de escritura
+        showTypingIndicator();
+        
+        // Desplazarse al final después de mostrar el indicador de escritura
+        setTimeout(() => {
+            scrollToBottom();
+        }, 100);
+
         // Usar 'Marcelo' como user_id fijo
         const userId = 'Marcelo';
         
@@ -1345,34 +1481,39 @@ async function sendMessage(userMessage = null) {
         Object.entries(messageData).forEach(([k, v]) => body.append(k, v));
 
         // Enviar petición
+        console.log('Enviando petición al servidor...');
         const response = await fetch(apiUrl, {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
             body
         });
 
+        console.log('Respuesta recibida, estado:', response.status);
+
         // Verificar respuesta
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error en la respuesta del servidor:', errorText);
+            throw new Error(`Error HTTP: ${response.status} - ${errorText}`);
+        }
 
         // Procesar respuesta
         let result = {};
-        try { 
-            const responseData = await response.text();
-            console.log('Respuesta en texto plano:', responseData);
-            
+        const responseData = await response.text();
+        console.log('Respuesta en texto plano:', responseData);
+        
+        try {
             // Intentar parsear como JSON
-            try {
-                result = JSON.parse(responseData);
-                console.log('Respuesta parseada como JSON:', result);
-            } catch (e) {
-                console.log('La respuesta no es JSON válido, se tratará como texto plano');
-                result = { response: responseData };
-            }
-        } catch (error) {
-            console.error('Error al procesar la respuesta:', error);
-            throw new Error('Error al procesar la respuesta del servidor');
+            result = JSON.parse(responseData);
+            console.log('Respuesta parseada como JSON:', result);
+        } catch (e) {
+            console.log('La respuesta no es JSON válido, se tratará como texto plano');
+            result = { response: responseData };
         }
 
-        console.log('Respuesta del servidor:', result);
+        console.log('Respuesta del servidor procesada:', result);
 
         // Mostrar respuesta al usuario
         let responseText = '';
@@ -1457,7 +1598,78 @@ function updateTheme() {
 
 // Desplazarse al final de los mensajes
 function scrollToBottom() {
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    console.log('Ejecutando scrollToBottom');
+    
+    if (!messagesContainer) {
+        console.error('El contenedor de mensajes no está disponible');
+        messagesContainer = document.getElementById('messages');
+        if (!messagesContainer) {
+            console.error('No se pudo encontrar el contenedor de mensajes');
+            return;
+        }
+    }
+    
+    // Usar requestAnimationFrame para asegurar que el DOM esté actualizado
+    requestAnimationFrame(() => {
+        try {
+            console.log('Intentando desplazamiento...');
+            
+            // Método 1: Usar scrollTo con comportamiento suave
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+            
+            // Método 2: Establecer scrollTop directamente como respaldo
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Forzar un segundo intento después de un pequeño retraso
+            setTimeout(() => {
+                if (messagesContainer) {
+                    console.log('Segundo intento de desplazamiento');
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    
+                    // Tercer intento con scrollIntoView en el último mensaje
+                    const lastMessage = messagesContainer.lastElementChild;
+                    if (lastMessage) {
+                        console.log('Tercer intento con scrollIntoView');
+                        lastMessage.scrollIntoView({
+                            behavior: 'auto',
+                            block: 'end',
+                            inline: 'nearest'
+                        });
+                    }
+                    
+                    // Cuarto intento con scrollTo sin animación
+                    setTimeout(() => {
+                        if (messagesContainer) {
+                            console.log('Cuarto intento con scrollTo sin animación');
+                            messagesContainer.scrollTo(0, messagesContainer.scrollHeight);
+                        }
+                    }, 50);
+                }
+            }, 50);
+            
+            console.log('Desplazamiento completado');
+            
+        } catch (error) {
+            console.error('Error en scrollToBottom:', error);
+            
+            // Método de respaldo en caso de error
+            try {
+                if (messagesContainer) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            } catch (e) {
+                console.error('Error en el método de respaldo de desplazamiento:', e);
+            }
+        }
+    });
+    
+    // Asegurarse de que el contenedor de mensajes tenga la altura correcta
+    if (messagesContainer) {
+        messagesContainer.style.minHeight = '100%';
+    }
 }
 
 // Guardar mensaje en el almacenamiento local
